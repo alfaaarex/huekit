@@ -89,7 +89,7 @@ useEffect(() => {
 
 
 useEffect(() => {
-  const el = tabRefs[tab]?.current
+  const el = tabRefs[tab as keyof typeof tabRefs]?.current
   if (!el) return
 
   setPillStyle({
