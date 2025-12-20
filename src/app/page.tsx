@@ -135,10 +135,9 @@ const ColorPickerApp = () => {
   }, [hsl.h, hsl.s, hsl.l, isDragging]);
 
   useEffect(() => {
-    if (!/^#([0-9a-fA-F]{6})$/.test(hexInput)) {
-      setHexInput(hex);
-    }
-  }, [color]);
+    // Always sync hexInput with current color
+    setHexInput(hex);
+  }, [hex]);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -200,11 +199,124 @@ const ColorPickerApp = () => {
   return (
     <div className={`min-h-screen ${bgClass} ${textClass} transition-colors duration-300 relative overflow-x-hidden`}>
       {/* Animated Grid Background */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: `linear-gradient(${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px), linear-gradient(90deg, ${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px)`,
+          backgroundSize: '88px 88px',
+        }}></div>
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 35px, ${darkMode ? 'rgba(99,102,241,0.9)' : 'rgba(59,130,246,0.6)'} 35px, ${darkMode ? 'rgba(99,102,241,0.9)' : 'rgba(59,130,246,0.6)'} 36px)`,
         }}></div>
       </div>
+
+      {/* Floating Orbs - Multiple animated gradients */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {/* Primary base color orb */}
+        <div 
+          className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-30"
+          style={{
+            background: `radial-gradient(circle, ${hex} 0%, transparent 70%)`,
+            top: '10%',
+            left: '10%',
+            animation: 'float 25s ease-in-out infinite'
+          }}
+        ></div>
+        
+        {/* Secondary purple orb */}
+        <div 
+          className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-25"
+          style={{
+            background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)',
+            top: '20%',
+            right: '15%',
+            animation: 'float 20s ease-in-out infinite reverse'
+          }}
+        ></div>
+
+        {/* Tertiary pink orb */}
+        <div 
+          className="absolute w-[450px] h-[450px] rounded-full blur-[90px] opacity-20"
+          style={{
+            background: 'radial-gradient(circle, #ec4899 0%, transparent 70%)',
+            bottom: '15%',
+            left: '20%',
+            animation: 'float 30s ease-in-out infinite'
+          }}
+        ></div>
+
+        {/* Blue accent orb */}
+        <div 
+          className="absolute w-[400px] h-[400px] rounded-full blur-[80px] opacity-20"
+          style={{
+            background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)',
+            bottom: '25%',
+            right: '20%',
+            animation: 'float 28s ease-in-out infinite reverse'
+          }}
+        ></div>
+
+        {/* Small accent orbs */}
+        <div 
+          className="absolute w-[300px] h-[300px] rounded-full blur-[70px] opacity-15"
+          style={{
+            background: 'radial-gradient(circle, #10b981 0%, transparent 70%)',
+            top: '50%',
+            left: '50%',
+            animation: 'pulse 15s ease-in-out infinite'
+          }}
+        ></div>
+
+        <div 
+          className="absolute w-[250px] h-[250px] rounded-full blur-[60px] opacity-15"
+          style={{
+            background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)',
+            top: '60%',
+            right: '40%',
+            animation: 'pulse 18s ease-in-out infinite reverse'
+          }}
+        ></div>
+      </div>
+
+      {/* Animated mesh gradient overlay */}
+      <div className="fixed inset-0 pointer-events-none opacity-30">
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(at 20% 30%, ${darkMode ? 'rgba(99, 102, 241, 0.2)' : 'rgba(59, 130, 246, 0.15)'} 0px, transparent 50%),
+              radial-gradient(at 80% 20%, ${darkMode ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.15)'} 0px, transparent 50%),
+              radial-gradient(at 40% 70%, ${darkMode ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'} 0px, transparent 50%),
+              radial-gradient(at 60% 80%, ${darkMode ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.15)'} 0px, transparent 50%)
+            `,
+            animation: 'meshMove 20s ease-in-out infinite alternate'
+          }}
+        ></div>
+      </div>
+
+      {/* Animated particles */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 h-2 rounded-full opacity-20"
+            style={{
+              background: `linear-gradient(45deg, ${hex}, ${darkMode ? '#8b5cf6' : '#3b82f6'})`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animation: `particle ${15 + Math.random() * 10}s linear infinite`,
+              animationDelay: `${Math.random() * 5}s`
+            }}
+          ></div>
+        ))}
+      </div>
+
+      {/* Noise texture overlay */}
+      <div 
+        className="fixed inset-0 pointer-events-none opacity-[0.015] mix-blend-overlay"
+        style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' /%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\' /%3E%3C/svg%3E")',
+        }}
+      ></div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 pt-36 pb-16 relative z-10">
@@ -483,9 +595,52 @@ const ColorPickerApp = () => {
 
       <style jsx>{`
         @keyframes float {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(30px, -30px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
+          0%, 100% { 
+            transform: translate(0, 0) scale(1); 
+          }
+          33% { 
+            transform: translate(50px, -50px) scale(1.1); 
+          }
+          66% { 
+            transform: translate(-30px, 30px) scale(0.95); 
+          }
+        }
+
+        @keyframes pulse {
+          0%, 100% { 
+            transform: scale(1); 
+            opacity: 0.15;
+          }
+          50% { 
+            transform: scale(1.3); 
+            opacity: 0.25;
+          }
+        }
+
+        @keyframes meshMove {
+          0% {
+            transform: translate(0, 0) rotate(0deg);
+          }
+          100% {
+            transform: translate(50px, 50px) rotate(5deg);
+          }
+        }
+
+        @keyframes particle {
+          0% {
+            transform: translateY(0) translateX(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.2;
+          }
+          90% {
+            opacity: 0.2;
+          }
+          100% {
+            transform: translateY(-100vh) translateX(50px) rotate(360deg);
+            opacity: 0;
+          }
         }
 
         input[type="number"]::-webkit-inner-spin-button,
