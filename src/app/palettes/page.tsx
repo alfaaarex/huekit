@@ -317,7 +317,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
   }}
 />
 <div
-  className="absolute inset-0 pointer-events-none"
+  className="absolute inset-0 rounded-2xl pointer-events-none"
   style={{
     background: `linear-gradient(
       135deg,
