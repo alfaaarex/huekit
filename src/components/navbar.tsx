@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/themeprovider";
 /* ---------- TYPES ---------- */
 
@@ -105,7 +106,7 @@ const hexToRgb = (hex: string) => {
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Copy, Check, Github, User, Sun, Moon, UserCircle } from 'lucide-react';
-import { ThemeProvider } from "@/components/themeprovider";
+
 export default function Navbar( ) {
     
     const { darkMode, toggleDarkMode } = useTheme();
@@ -123,6 +124,8 @@ export default function Navbar( ) {
     const navBg = darkMode ? 'bg-zinc-950/30' : 'bg-white/50';
     const primaryText = darkMode ? "text-white" : "text-gray-900";
     const iconColor = darkMode ? "text-zinc-300" : "text-gray-700";
+    const pathname = usePathname();
+    const isPalettes = pathname.startsWith("/palettes");
 
     const glassCard =
       "backdrop-blur-xl bg-white/10 dark:bg-zinc-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] pointer-events-auto";
@@ -167,8 +170,14 @@ export default function Navbar( ) {
     };
 
     return (
-    <div className="fixed top-0 left-0 right-0 z-50 px-6 pt-4 overflow-y-auto">
-        <nav className={`border ${borderColor} ${navBg} backdrop-blur-2xl rounded-2xl transition-all duration-300
+    <div
+  className={`
+    fixed top-0 left-0 right-0 z-50 px-6
+    transition-transform duration-300 ease-out
+    ${scrolled ? "-translate-y-20" : "translate-y-5"}
+  `}
+>
+        <nav className={`border ${borderColor} ${scrolled ? "opacity-95" : "opacity-100"} ${navBg} backdrop-blur-2xl rounded-2xl transition-all duration-300
     ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} transition-colors relative  max-w-7xl mx-auto pointer-events-auto`}>
           <div
   className="absolute inset-0 pointer-events-none rounded-2xl"
@@ -217,15 +226,30 @@ export default function Navbar( ) {
               </div>
             
             <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 ${darkMode ? 'bg-zinc-900' : 'bg-gray-200'} rounded-full p-1 shadow-inner`}>
-                <Link href="/"><button className={`px-4 py-1.5 rounded-full text-sm font-medium ${secondaryText} hover:${textClass} transition-all font-mono`}>
-                  Convert
-                </button></Link>
-                <Link href="/palettes">
-                <button className={`px-4 py-1.5 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-white'} text-sm font-medium transition-all font-mono shadow-sm`}>
-                  Palettes
-                </button>
-                </Link>
+                
+              <div className="relative flex items-center rounded-full p-1 shadow-inner
+  bg-zinc-900/70 dark:bg-zinc-900
+  bg-gray-200/80"
+><div
+  className={`
+    absolute top-1 bottom-1 w-1/2 rounded-full
+    transition-transform duration-300 ease-out
+    ${darkMode ? "bg-zinc-800" : "bg-white"}
+    ${isPalettes ? "translate-x-full" : "translate-x-0"}
+  `}
+/>
+                <Link href="/" className="relative z-10">
+  <button className={`px-4 py-1.5 text-sm font-medium font-mono ${secondaryText}`}>
+    Convert
+  </button>
+</Link>
+
+<Link href="/palettes" className="relative z-10">
+  <button className={`px-4 py-1.5 text-sm font-medium font-mono ${secondaryText}`}>
+    Palettes
+  </button>
+</Link>
+
                 
               </div>
               
