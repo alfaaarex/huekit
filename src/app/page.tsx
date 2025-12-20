@@ -661,7 +661,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 >
   {/* Picker cursor */}
   <div 
-    className="absolute w-6 h-6 border-4 border-white rounded-full shadow-lg -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+    className="absolute w-6 h-6 border-4 border-white rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
     style={{ 
       left: `${pickerColor.x}%`, 
       top: `${pickerColor.y}%`,
