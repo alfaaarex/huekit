@@ -241,7 +241,7 @@ const handleColorInput = (value: string) => {
 
 
   return (
-    <div className={`min-h-screen ${bgClass} ${textClass} transition-colors duration-300 relative`}>
+    <div className={`min-h-screen overflow-y-auto ${bgClass} ${textClass} transition-colors duration-300 relative`}>
       {/* Animated Grid Background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 opacity-30" style={{
@@ -256,7 +256,7 @@ const handleColorInput = (value: string) => {
       {/* Gradient Overlay Effects - More Vibrant */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div 
-          className="absolute w-[700px] h-[700px] rounded-full blur-[140px] opacity-30"
+          className="absolute w-175 h-175 rounded-full blur-[140px] opacity-30"
           style={{
             background: `radial-gradient(circle, ${hex} 0%, transparent 70%)`,
             top: '5%',
@@ -265,7 +265,7 @@ const handleColorInput = (value: string) => {
           }}
         ></div>
         <div 
-          className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-25"
+          className="absolute w-150 h-150 rounded-full blur-[120px] opacity-25"
           style={{
             background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)',
             bottom: '10%',
@@ -274,7 +274,7 @@ const handleColorInput = (value: string) => {
           }}
         ></div>
         <div 
-          className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-20"
+          className="absolute w-125 h-125 rounded-full blur-[100px] opacity-20"
           style={{
             background: 'radial-gradient(circle, #ec4899 0%, transparent 70%)',
             top: '40%',
@@ -283,7 +283,7 @@ const handleColorInput = (value: string) => {
           }}
         ></div>
         <div 
-          className="absolute w-[550px] h-[550px] rounded-full blur-[110px] opacity-20"
+          className="absolute w-137.5 h-137.5 rounded-full blur-[110px] opacity-20"
           style={{
             background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)',
             bottom: '30%',
@@ -293,9 +293,9 @@ const handleColorInput = (value: string) => {
         ></div>
       </div>
       {/* Navigation */}
-      <div className="fixed top-0 left-0 right-0 z-50 px-6 pt-4 pointer-events-none">
+      <div className="fixed top-0 left-0 right-0 z-50 px-6 pt-4 overflow-y-auto">
         <nav className={`border ${borderColor} ${navBg} backdrop-blur-2xl rounded-2xl transition-all duration-300
-${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} transition-colors relative overflow-hidden max-w-7xl mx-auto pointer-events-auto`} style={{
+${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} transition-colors relative  max-w-7xl mx-auto pointer-events-auto`} style={{
           boxShadow: darkMode 
             ? '0 20px 50px -12px rgba(99, 102, 241, 0.25), 0 0 0 1px rgba(99, 102, 241, 0.1)' 
             : '0 20px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1)'
@@ -335,8 +335,8 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 <path d="M15.0459 0L30.0917 27.8313H-2.95639e-05L15.0459 0Z" fill="url(#paint0_linear_102_217)"/>
 <defs>
 <linearGradient id="paint0_linear_102_217" x1="32.4194" y1="4.28825" x2="-3.99473" y2="30.5046" gradientUnits="userSpaceOnUse">
-<stop stop-color="#EAF259"/>
-<stop offset="0.5" stop-color="#793F2C"/>
+<stop stopColor="#EAF259"/>
+<stop offset="0.5" stopColor="#793F2C"/>
 <stop offset="1"/>
 </linearGradient>
 </defs>
@@ -375,22 +375,22 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
           </div>
         </div>
       </nav>
-      <div className="relative overflow-y-auto">
+     <div className="relative">
   {/* Main Content */}
 <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20">
-    <div className="text-center mb-12 relative pointer-events-none">
-          <div className=" inset-0 pointer-events-none -z-10 blur-3xl opacity-30" style={{
+    <div className="text-center mb-12 relative">
+          <div className="absolute inset-0 -z-10 blur-3xl opacity-30 pointer-events-none" style={{
             background: darkMode 
               ? 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.4) 0%, transparent 70%)'
               : 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.4) 0%, transparent 70%)'
           }}></div>
-          <h1 className={`text-5xl font-bold mb-4 font-mono ${textClass} relative pointer-events-auto`}>
-            <span className="relative inline-block ">
+          <h1 className={`text-5xl font-bold mb-4 font-mono ${textClass} relative`}>
+            <span className="relative inline-block">
               Generative Palettes
-              <div className=" -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-50"></div>
+              <div className="absolute -bottom-2 left-0 right-0 h-1 bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-50"></div>
             </span>
           </h1>
-          <p className={`${secondaryText} text-lg max-w-2xl mx-auto font-mono relative pointer-events-auto`}>
+          <p className={`${secondaryText} text-lg max-w-2xl mx-auto font-mono relative`}>
             One HEX Code from you generates palettes automatically for you to use in your work!
           </p>
         </div>
@@ -418,7 +418,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 </div>
 
   {/* columns */}
-  <div className="flex flex-col gap-8 lg:w-1/2">
+  <div className="flex flex-col gap-8 lg:w-1/2 overflow-y-visible!">
   {/* palette cards go here */}
   <div className={`${glassCard} border ${borderColor} rounded-2xl p-6`}>
   <PaletteRow title="Tints" colors={generateTints(baseHsl)} />
