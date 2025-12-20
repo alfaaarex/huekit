@@ -301,7 +301,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
             : '0 20px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1)'
         }}>
           <div
-  className="absolute inset-0 pointer-events-none"
+  className="absolute inset-0 pointer-events-none rounded-2xl"
   style={{
     background: darkMode
       ? 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0))'
@@ -322,7 +322,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
     background: `linear-gradient(
       135deg,
       ${hex}22 0%,
-      transparent 60%
+      transparent 30%
     )`
   }}
 />
@@ -353,7 +353,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
                 </button></Link>
                 <Link href="/palettes">
                 <button className={`px-4 py-1.5 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-white'} text-sm font-medium transition-all font-mono shadow-sm`}>
-                  Palette
+                  Palettes
                 </button>
                 </Link>
                 
