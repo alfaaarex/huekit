@@ -2,7 +2,8 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { useState, useEffect, useRef } from "react"
+import { useState} from "react"
+// useEffect and useRef never used so I commented them out :)
 type HSL = { h: number; s: number; l: number }
 type RGB = { r: number; g: number; b: number }
 
@@ -89,7 +90,7 @@ export function Palettes({ h, s, l, onSelect }: PalettesProps) {
   ]
 
   return (
-  <section className="mx-auto max-w-5xl px-6 space-y-14">
+  <section className="mx-auto max-w-5xl px-6 space-y-14 overflow-y-visible!">
     {/* Header */}
     <div className="space-y-3">
   <h2 className="text-2xl pt-20 font-semibold tracking-tight">
@@ -109,7 +110,7 @@ export function Palettes({ h, s, l, onSelect }: PalettesProps) {
           className="
     rounded-2xl
     border border-white/10
-    bg-white/[0.04]
+    bg-white/4
     backdrop-blur-xl
     p-6
     space-y-4
@@ -153,7 +154,7 @@ export function Palettes({ h, s, l, onSelect }: PalettesProps) {
   }}
 >
   {/* Hover gradient overlay */}
-  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+  <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
   {/* HEX label */}
   <span className="absolute bottom-2 left-2 text-[10px] font-mono text-white/80 opacity-0 transition-opacity group-hover:opacity-100">

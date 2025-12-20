@@ -3,15 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { Copy, Check, Github, User, Sun, Moon, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 
+type RGB = { r: number; g: number; b: number };
+type HSL = { h: number; s: number; l: number };
+
 const ColorPickerApp = () => {
-  const [activeTab, setActiveTab] = useState<"convert" | "palettes">("convert");
+  // const [activeTab, setActiveTab] = useState<"convert" | "palettes">("convert");
   const [color, setColor] = useState({ r: 255, g: 0, b: 0 });
   const [copiedField, setCopiedField] = useState('');
   const [pickerColor, setPickerColor] = useState({ x: 100, y: 0 });
   const [darkMode, setDarkMode] = useState(false);
   const [hexInput, setHexInput] = useState('#ff0000');
   const [isDragging, setIsDragging] = useState(false);
-  const [isDraggingSlider, setIsDraggingSlider] = useState(null);
+  const [isDraggingSlider, setIsDraggingSlider] =
+  useState<null | 'hue' | 'saturation' | 'lightness'>(null);
+
 
   /* ---------- PALETTE HELPERS ---------- */
 
@@ -56,86 +61,109 @@ const generateSplitComplementary = (h: number, s: number, l: number) =>
     l,
   }));
 
-  const rgbToHex = (r, g, b) => {
-    return '#' + [r, g, b].map(x => {
-      const hex = x.toString(16);
-      return hex.length === 1 ? '0' + hex : hex;
-    }).join('');
+const rgbToHex = (r: number, g: number, b: number): string => {
+  return (
+    "#" +
+    [r, g, b]
+      .map(x => x.toString(16).padStart(2, "0"))
+      .join("")
+  );
+};
+
+  const rgbToHsl = (r: number, g: number, b: number): HSL => {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+
+  let h = 0;
+  let s = 0;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+
+    h *= 60;
+  }
+
+  return {
+    h: Math.round(h),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100),
   };
+};
 
-  const rgbToHsl = (r, g, b) => {
-    r /= 255;
-    g /= 255;
-    b /= 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h, s, l = (max + min) / 2;
-
-    if (max === min) {
-      h = s = 0;
-    } else {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-        case g: h = ((b - r) / d + 2) / 6; break;
-        case b: h = ((r - g) / d + 4) / 6; break;
+const hexToRgb = (hex: string): RGB | null => {
+  const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return match
+    ? {
+        r: parseInt(match[1], 16),
+        g: parseInt(match[2], 16),
+        b: parseInt(match[3], 16),
       }
-    }
+    : null;
+};
 
-    return {
-      h: Math.round(h * 360),
-      s: Math.round(s * 100),
-      l: Math.round(l * 100)
+const hslToRgb = (h: number, s: number, l: number): RGB => {
+  h /= 360;
+  s /= 100;
+  l /= 100;
+
+  let r: number, g: number, b: number;
+
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p: number, q: number, t: number): number => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
     };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255),
   };
+};
 
-  const hexToRgb = (hex) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
-  };
-
-  const hslToRgb = (h, s, l) => {
-    h /= 360;
-    s /= 100;
-    l /= 100;
-    let r, g, b;
-
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      const hue2rgb = (p, q, t) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t;
-        if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-        return p;
-      };
-
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1/3);
-      g = hue2rgb(p, q, h);
-      b = hue2rgb(p, q, h - 1/3);
-    }
-
-    return {
-      r: Math.round(r * 255),
-      g: Math.round(g * 255),
-      b: Math.round(b * 255)
-    };
-  };
 const [scrolled, setScrolled] = useState(false);
 useEffect(() => {
   const onScroll = () => setScrolled(window.scrollY > 8);
   onScroll();
   window.addEventListener('scroll', onScroll);
   return () => window.removeEventListener('scroll', onScroll);
+}, []);
+useEffect(() => {
+  const stopDrag = () => setIsDragging(false);
+  window.addEventListener("mouseup", stopDrag);
+  return () => window.removeEventListener("mouseup", stopDrag);
 }, []);
 
   const hex = rgbToHex(color.r, color.g, color.b);
@@ -161,11 +189,14 @@ useEffect(() => {
 }, []);
 
 
-  useEffect(() => {
+ useEffect(() => {
+  if (!/^#([0-9a-fA-F]{6})$/.test(hexInput)) {
     setHexInput(hex);
-  }, [hex]);
+  }
+}, [color]);
 
-  const copyToClipboard = (text, field) => {
+
+  const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(''), 2000);
@@ -204,21 +235,6 @@ const handlePickerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
   const handlePickerMouseUp = () => {
   setIsDragging(false);
 };
-
-useEffect(() => {
-  if (!isDragging) return;
-
-  window.addEventListener('mouseup', handlePickerMouseUp);
-  return () => window.removeEventListener('mouseup', handlePickerMouseUp);
-}, [isDragging]);
-  
-useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mouseup', handlePickerMouseUp);
-      return () => window.removeEventListener('mouseup', handlePickerMouseUp);
-    }
-  }, [isDragging]);
-
   useEffect(() => {
     if (isDraggingSlider) {
       const handleMouseUp = () => setIsDraggingSlider(null);
@@ -227,11 +243,14 @@ useEffect(() => {
     }
   }, [isDraggingSlider]);
 
-  const handleHexInputChange = (e) => {
+  const handleHexInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setHexInput(value);
-    const rgb = hexToRgb(value);
-    if (rgb) setColor(rgb);
+if (/^#([0-9a-fA-F]{6})$/.test(value)) {
+  const rgb = hexToRgb(value);
+  if (rgb) setColor(rgb);
+}
+
   };
 
   const bgClass = darkMode ? 'bg-black' : 'bg-gray-50';
@@ -273,7 +292,7 @@ useEffect(() => {
 );
 
   return (
-    <div className={`min-h-screen ${bgClass} ${textClass} transition-colors duration-300 relative overflow-hidden`}>
+    <div className={`min-h-screen ${bgClass} ${textClass} transition-colors duration-300 relative overflow-x-hidden`}>
       {/* Animated Grid Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 opacity-30" style={{
@@ -289,7 +308,7 @@ useEffect(() => {
       {/* Gradient Overlay Effects - More Vibrant */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div 
-          className="absolute w-[700px] h-[700px] rounded-full blur-[140px] opacity-30"
+          className="absolute w-96 h-96 rounded-full blur-3xl opacity-30"
           style={{
             background: `radial-gradient(circle, ${hex} 0%, transparent 70%)`,
             top: '5%',
@@ -298,7 +317,7 @@ useEffect(() => {
           }}
         ></div>
         <div 
-          className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-25"
+          className="absolute w-96 h-96 rounded-full blur-[120px] opacity-25"
           style={{
             background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)',
             bottom: '10%',
@@ -307,7 +326,7 @@ useEffect(() => {
           }}
         ></div>
         <div 
-          className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-20"
+          className="absolute w-125 h-125 rounded-full blur-[100px] opacity-20"
           style={{
             background: 'radial-gradient(circle, #ec4899 0%, transparent 70%)',
             top: '40%',
@@ -316,7 +335,7 @@ useEffect(() => {
           }}
         ></div>
         <div 
-          className="absolute w-[550px] h-[550px] rounded-full blur-[110px] opacity-20"
+          className="absolute w-137.5 h-137.5 rounded-full blur-[110px] opacity-20"
           style={{
             background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)',
             bottom: '30%',
@@ -369,8 +388,8 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 <path d="M15.0459 0L30.0917 27.8313H-2.95639e-05L15.0459 0Z" fill="url(#paint0_linear_102_217)"/>
 <defs>
 <linearGradient id="paint0_linear_102_217" x1="32.4194" y1="4.28825" x2="-3.99473" y2="30.5046" gradientUnits="userSpaceOnUse">
-<stop stop-color="#EAF259"/>
-<stop offset="0.5" stop-color="#793F2C"/>
+<stop stopColor="#EAF259"/>
+<stop offset="0.5" stopColor="#793F2C"/>
 <stop offset="1"/>
 </linearGradient>
 </defs>
@@ -422,7 +441,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
           <h1 className={`text-5xl font-bold mb-4 font-mono ${textClass} relative`}>
             <span className="relative inline-block">
               Colour Picker Utility
-              <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-50"></div>
+              <div className="absolute -bottom-2 left-0 right-0 h-1 bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-50"></div>
             </span>
           </h1>
           <p className={`${secondaryText} text-lg max-w-2xl mx-auto font-mono`}>
@@ -436,7 +455,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
           <div className="flex flex-col gap-6 lg:w-1/2">
             {/* HEX */}
             <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <label className={`block text-sm font-medium ${secondaryText} mb-3 font-mono relative z-10`}>HEX</label>
               <div className="flex gap-2 relative z-10">
                 <input
@@ -457,7 +476,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 
             {/* RGB */}
             <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <label className={`block text-sm font-medium ${secondaryText} mb-4 font-mono relative z-10`}>RGB</label>
               <div className="grid grid-cols-3 gap-3 mb-4 relative z-10">
                 <div>
@@ -505,7 +524,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 
             {/* HSL */}
             <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <label className={`block text-sm font-medium ${secondaryText} mb-4 font-mono relative z-10`}>HSL</label>
               
               <div className="space-y-5">
@@ -527,7 +546,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
                     onMouseMove={(e) => {
                       if (isDraggingSlider === 'hue') {
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const value = Math.max(0, Math.min(360, Math.round(((e.clientX - rect.left) / rect.width) * 360)));
+                        const value = Math.max(0, Math.min(359, Math.round(((e.clientX - rect.left) / rect.width) * 360)));
                         const newRgb = hslToRgb(value, hsl.s, hsl.l);
                         setColor(newRgb);
                       }
@@ -624,7 +643,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
           <div className="flex flex-col gap-8 lg:w-1/2">
             {/* Color Preview */}
             <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <label className={`block text-sm font-medium ${secondaryText} mb-3 font-mono relative z-10`}>Preview</label>
               <div 
                 className="w-full h-28 rounded-xl shadow-2xl transition-all border-2 relative z-10"
@@ -638,7 +657,7 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
               
             {/* Color Picker Gradient */}
             <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-linear-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               {/** biome-ignore lint/a11y/noLabelWithoutControl: <explanation> */}
 <label className={`block text-sm font-medium ${secondaryText} mb-3 font-mono relative z-10`}>Picker</label>
               {/** biome-ignore lint/a11y/noStaticElementInteractions: <explanation> */}
