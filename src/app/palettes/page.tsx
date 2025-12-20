@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Copy, Check, Github, User, Sun, Moon, UserCircle } from 'lucide-react';
+import { useTheme } from "@/components/themeprovider";
 /* ---------- TYPES ---------- */
 
 type HSL = {
@@ -28,6 +29,7 @@ const looksLikeRgb = (value: string) => {
     })
   );
 };
+
 
 const hslToHex = (h: number, s: number, l: number) => {
   s /= 100;
@@ -175,7 +177,8 @@ const PaletteRow = ({
 /* ---------- PAGE ---------- */
 
 export default function PalettesPage() {
-const [darkMode, setDarkMode] = useState(false);
+    const { darkMode } = useTheme();
+
 const cardBg = darkMode ? "bg-zinc-950/60" : "bg-white/70";
 const borderColor = darkMode ? "border-white/10" : "border-black/10";
 const secondaryText = darkMode ? "text-zinc-400" : "text-zinc-600";
@@ -207,15 +210,7 @@ useEffect(() => {
   window.addEventListener('scroll', onScroll);
   return () => window.removeEventListener('scroll', onScroll);
 }, []);
-useEffect(() => {
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  const updateTheme = () => setDarkMode(media.matches);
 
-  updateTheme();
-  media.addEventListener('change', updateTheme);
-
-  return () => media.removeEventListener('change', updateTheme);
-}, []);
 const handleColorInput = (value: string) => {
   setColorInput(value);
 
@@ -245,7 +240,7 @@ const handleColorInput = (value: string) => {
       {/* Animated Grid Background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 opacity-30" style={{
-          backgroundImage: `linear-gradient(${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.8)'} 1px, transparent 1px), linear-gradient(90deg, ${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.8)'} 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px), linear-gradient(90deg, ${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px)`,
           backgroundSize: '88px 88px',
         }}></div>
         {/* Animated diagonal lines */}
@@ -264,26 +259,9 @@ const handleColorInput = (value: string) => {
             animation: 'float 20s ease-in-out infinite'
           }}
         ></div>
+        
         <div 
-          className="absolute w-150 h-150 rounded-full blur-[120px] opacity-25"
-          style={{
-            background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)',
-            bottom: '10%',
-            right: '10%',
-            animation: 'float 15s ease-in-out infinite reverse'
-          }}
-        ></div>
-        <div 
-          className="absolute w-125 h-125 rounded-full blur-[100px] opacity-20"
-          style={{
-            background: 'radial-gradient(circle, #ec4899 0%, transparent 70%)',
-            top: '40%',
-            right: '25%',
-            animation: 'float 18s ease-in-out infinite'
-          }}
-        ></div>
-        <div 
-          className="absolute w-137.5 h-137.5 rounded-full blur-[110px] opacity-20"
+          className="rounded-full blur-[110px] opacity-20"
           style={{
             background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)',
             bottom: '30%',
@@ -293,88 +271,7 @@ const handleColorInput = (value: string) => {
         ></div>
       </div>
       {/* Navigation */}
-      <div className="fixed top-0 left-0 right-0 z-50 px-6 pt-4 overflow-y-auto">
-        <nav className={`border ${borderColor} ${navBg} backdrop-blur-2xl rounded-2xl transition-all duration-300
-${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} transition-colors relative  max-w-7xl mx-auto pointer-events-auto`} style={{
-          boxShadow: darkMode 
-            ? '0 20px 50px -12px rgba(99, 102, 241, 0.25), 0 0 0 1px rgba(99, 102, 241, 0.1)' 
-            : '0 20px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1)'
-        }}>
-          <div
-  className="absolute inset-0 pointer-events-none rounded-2xl"
-  style={{
-    background: darkMode
-      ? 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0))'
-      : 'linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0))'
-  }}
-/>
-<div
-  className="absolute inset-0 pointer-events-none opacity-[0.035]"
-  style={{
-    backgroundImage: `
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E")
-    `
-  }}
-/>
-<div
-  className="absolute inset-0 rounded-2xl pointer-events-none"
-  style={{
-    background: `linear-gradient(
-      135deg,
-      ${hex}22 0%,
-      transparent 30%
-    )`
-  }}
-/>
-
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-                  <svg width="31" height="28" viewBox="0 0 31 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M15.0459 0L30.0917 27.8313H-2.95639e-05L15.0459 0Z" fill="url(#paint0_linear_102_217)"/>
-<defs>
-<linearGradient id="paint0_linear_102_217" x1="32.4194" y1="4.28825" x2="-3.99473" y2="30.5046" gradientUnits="userSpaceOnUse">
-<stop stopColor="#EAF259"/>
-<stop offset="0.5" stopColor="#793F2C"/>
-<stop offset="1"/>
-</linearGradient>
-</defs>
-</svg>
-
-                </div>
-                <span className="font-bold text-xl align-center tracking-tight font-mono">HUEKIT</span>
-              </div>
-            
-            <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 ${darkMode ? 'bg-zinc-900' : 'bg-gray-200'} rounded-full p-1 shadow-inner`}>
-                <Link href="/"><button className={`px-4 py-1.5 rounded-full text-sm font-medium ${secondaryText} hover:${textClass} transition-all font-mono`}>
-                  Convert
-                </button></Link>
-                <Link href="/palettes">
-                <button className={`px-4 py-1.5 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-white'} text-sm font-medium transition-all font-mono shadow-sm`}>
-                  Palettes
-                </button>
-                </Link>
-                
-              </div>
-              
-              <button 
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 ${btnHover} rounded-lg transition-all shadow-sm hover:shadow-md ${darkMode ? 'hover:text-yellow-400' : 'hover:text-blue-600'}`}
-              >
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-              <button className={`p-2 ${btnHover} rounded-lg transition-all shadow-sm hover:shadow-md hover:text-purple-500`}>
-                <Link href="https://github.com/alfaaarex/color-tool"><Github size={20} /></Link>
-              </button>
-              <button className={`p-2 ${btnHover} rounded-lg transition-all shadow-sm hover:shadow-md hover:text-blue-500`}>
-                <Link href="https://agni.is-a.dev/"><UserCircle size={20} /></Link>
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      
      <div className="relative">
   {/* Main Content */}
 <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20">
@@ -447,7 +344,6 @@ ${scrolled ? 'shadow-2xl backdrop-blur-3xl' : 'shadow-lg backdrop-blur-xl'} tran
 </div>
 </div>
 
-      </div>
       </div>
       
   );
