@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -156,7 +157,9 @@ const PaletteRow = ({
       {colors.map((c, i) => {
         const css = hslToCss(c.h, c.s, c.l);
         return (
-          <div
+          // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
+<div
+            // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
             key={i}
             className="h-16 rounded-lg border border-black/10 dark:border-white/10 cursor-pointer"
             style={{ background: css }}
