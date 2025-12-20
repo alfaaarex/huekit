@@ -124,6 +124,9 @@ export default function Navbar( ) {
     const navBg = darkMode ? 'bg-zinc-950/30' : 'bg-white/50';
     const primaryText = darkMode ? "text-white" : "text-gray-900";
     const iconColor = darkMode ? "text-zinc-300" : "text-gray-700";
+    const tabActiveText = darkMode ? "text-white" : "text-gray-900";
+    const tabInactiveText = darkMode ? "text-zinc-400" : "text-gray-800";
+    const innerbg = darkMode ? "shadow-inner bg-zinc-900/70" : "shadow-inner bg-zinc-900/30";
     const pathname = usePathname();
     const isPalettes = pathname.startsWith("/palettes");
 
@@ -227,27 +230,40 @@ export default function Navbar( ) {
             
             <div className="flex items-center gap-4">
                 
-              <div className="relative flex items-center rounded-full p-1 shadow-inner
-  bg-zinc-900/70 dark:bg-zinc-900
-  bg-gray-200/80"
-><div
+              <div className={`relative flex items-center rounded-full p-1 ${innerbg} dark:bg-zinc-900
+  bg-gray-200`}>
+  <div
   className={`
-    absolute top-1 bottom-1 w-1/2 rounded-full
+    absolute top-1 bottom-1 w-[calc(50%-4px)]
+ rounded-full
     transition-transform duration-300 ease-out
-    ${darkMode ? "bg-zinc-800" : "bg-white"}
-    ${isPalettes ? "translate-x-full" : "translate-x-0"}
+    ${darkMode ? "bg-zinc-800" : "bg-white shadow-sm"}
+    ${isPalettes ? "translate-x-[calc(100%-1px)]" : "translate-x-0"}
   `}
 />
                 <Link href="/" className="relative z-10">
-  <button className={`px-4 py-1.5 text-sm font-medium font-mono ${secondaryText}`}>
-    Convert
-  </button>
+  <button
+  className={`
+    px-4 py-1.5
+    font-mono text-sm
+    
+    ${!isPalettes ? tabActiveText : tabInactiveText}
+  `}
+>
+  Convert
+</button>
 </Link>
 
 <Link href="/palettes" className="relative z-10">
-  <button className={`px-4 py-1.5 text-sm font-medium font-mono ${secondaryText}`}>
-    Palettes
-  </button>
+  <button
+  className={`
+    px-4 py-1.5
+    font-mono text-sm
+    ${isPalettes ? tabActiveText : tabInactiveText}
+  `}
+>
+  Palettes
+</button>
 </Link>
 
                 
