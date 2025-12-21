@@ -318,6 +318,7 @@ export default function PalettesPage() {
   const [colorInput, setColorInput] = useState("#3B82F6");
   const [copiedStates, setCopiedStates] = useState<Record<string, { index: number; format: string } | null>>({});
   const [scrolled, setScrolled] = useState(false);
+  const [isDraggingSlider, setIsDraggingSlider] = useState<'hue' | 'saturation' | 'lightness' | null>(null);
 
   const hex = hslToHex(baseHsl.h, baseHsl.s, baseHsl.l);
 
@@ -327,6 +328,47 @@ export default function PalettesPage() {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (isDraggingSlider) {
+      const handleMouseUp = () => setIsDraggingSlider(null);
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!isDraggingSlider) return;
+
+        const slider = document.getElementById(`slider-${isDraggingSlider}`);
+        if (!slider) return;
+
+        const rect = slider.getBoundingClientRect();
+        const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+        const percentage = (x / rect.width) * 100;
+
+        if (isDraggingSlider === 'hue') {
+          const hue = Math.round((percentage / 100) * 360);
+          const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
+          setBaseHsl(newHsl);
+          setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
+        } else if (isDraggingSlider === 'saturation') {
+          const saturation = Math.round(percentage);
+          const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
+          setBaseHsl(newHsl);
+          setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
+        } else if (isDraggingSlider === 'lightness') {
+          const lightness = Math.round(percentage);
+          const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
+          setBaseHsl(newHsl);
+          setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
+        }
+      };
+
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleMouseMove);
+      
+      return () => {
+        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [isDraggingSlider, baseHsl]);
 
   const handleColorInput = (value: string) => {
     setColorInput(value);
@@ -570,14 +612,16 @@ export default function PalettesPage() {
                   <span className={`text-xs font-mono ${textClass}`}>{baseHsl.h}°</span>
                 </div>
                 <div 
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden"
-                  onClick={(e) => {
+                  id="slider-hue"
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none"
+                  onMouseDown={(e) => {
+                    setIsDraggingSlider('hue');
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const hue = Math.round((x / rect.width) * 360);
-                    const newHex = hslToHex(hue, baseHsl.s, baseHsl.l);
-                    setColorInput(newHex);
-                    handleColorInput(newHex);
+                    const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
+                    setBaseHsl(newHsl);
+                    setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
                   }}
                   style={{
                     background: 'linear-gradient(to right, hsl(0, 80%, 50%), hsl(30, 80%, 50%), hsl(60, 80%, 50%), hsl(90, 80%, 50%), hsl(120, 80%, 50%), hsl(150, 80%, 50%), hsl(180, 80%, 50%), hsl(210, 80%, 50%), hsl(240, 80%, 50%), hsl(270, 80%, 50%), hsl(300, 80%, 50%), hsl(330, 80%, 50%), hsl(360, 80%, 50%))'
@@ -585,7 +629,7 @@ export default function PalettesPage() {
                 >
                   {/* Position indicator */}
                   <div 
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
                     style={{ left: `${(baseHsl.h / 360) * 100}%` }}
                   />
                 </div>
@@ -600,15 +644,16 @@ export default function PalettesPage() {
                   <span className={`text-xs font-mono ${textClass}`}>{baseHsl.s}%</span>
                 </div>
                 <div 
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden"
-                  onClick={(e) => {
+                  id="slider-saturation"
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none"
+                  onMouseDown={(e) => {
+                    setIsDraggingSlider('saturation');
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const saturation = Math.round((x / rect.width) * 100);
                     const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
                     setBaseHsl(newHsl);
-                    const newHex = hslToHex(baseHsl.h, saturation, baseHsl.l);
-                    setColorInput(newHex);
+                    setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
                   }}
                   style={{
                     background: `linear-gradient(to right, hsl(${baseHsl.h}, 0%, 50%), hsl(${baseHsl.h}, 100%, 50%))`
@@ -616,7 +661,7 @@ export default function PalettesPage() {
                 >
                   {/* Position indicator */}
                   <div 
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
                     style={{ left: `${baseHsl.s}%` }}
                   />
                 </div>
@@ -631,15 +676,16 @@ export default function PalettesPage() {
                   <span className={`text-xs font-mono ${textClass}`}>{baseHsl.l}%</span>
                 </div>
                 <div 
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden"
-                  onClick={(e) => {
+                  id="slider-lightness"
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none"
+                  onMouseDown={(e) => {
+                    setIsDraggingSlider('lightness');
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const lightness = Math.round((x / rect.width) * 100);
                     const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
                     setBaseHsl(newHsl);
-                    const newHex = hslToHex(baseHsl.h, baseHsl.s, lightness);
-                    setColorInput(newHex);
+                    setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
                   }}
                   style={{
                     background: `linear-gradient(to right, hsl(${baseHsl.h}, ${baseHsl.s}%, 0%), hsl(${baseHsl.h}, ${baseHsl.s}%, 100%))`
@@ -647,7 +693,7 @@ export default function PalettesPage() {
                 >
                   {/* Position indicator */}
                   <div 
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
                     style={{ left: `${baseHsl.l}%` }}
                   />
                 </div>
