@@ -524,8 +524,8 @@ export default function PalettesPage() {
 
         {/* Color Input */}
         <Reveal delay={150}>
-          <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-12 max-w-3xl mx-auto shadow-2xl`}>
-            <div className="flex items-center gap-6">
+          <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-12 max-w-4xl mx-auto shadow-2xl`}>
+            <div className="flex items-center gap-6 mb-6">
               <div 
                 className="w-20 h-20 rounded-2xl border-4 border-white/30 shadow-2xl flex-shrink-0 transition-all hover:scale-110"
                 style={{ 
@@ -557,6 +557,101 @@ export default function PalettesPage() {
                 <option>HEX</option>
                 <option>RGB</option>
               </select>
+            </div>
+
+            {/* Color Sliders */}
+            <div className="space-y-4">
+              {/* Hue Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
+                    Hue
+                  </label>
+                  <span className={`text-xs font-mono ${textClass}`}>{baseHsl.h}°</span>
+                </div>
+                <div 
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const hue = Math.round((x / rect.width) * 360);
+                    const newHex = hslToHex(hue, baseHsl.s, baseHsl.l);
+                    setColorInput(newHex);
+                    handleColorInput(newHex);
+                  }}
+                  style={{
+                    background: 'linear-gradient(to right, hsl(0, 80%, 50%), hsl(30, 80%, 50%), hsl(60, 80%, 50%), hsl(90, 80%, 50%), hsl(120, 80%, 50%), hsl(150, 80%, 50%), hsl(180, 80%, 50%), hsl(210, 80%, 50%), hsl(240, 80%, 50%), hsl(270, 80%, 50%), hsl(300, 80%, 50%), hsl(330, 80%, 50%), hsl(360, 80%, 50%))'
+                  }}
+                >
+                  {/* Position indicator */}
+                  <div 
+                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    style={{ left: `${(baseHsl.h / 360) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Saturation Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
+                    Saturation
+                  </label>
+                  <span className={`text-xs font-mono ${textClass}`}>{baseHsl.s}%</span>
+                </div>
+                <div 
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const saturation = Math.round((x / rect.width) * 100);
+                    const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
+                    setBaseHsl(newHsl);
+                    const newHex = hslToHex(baseHsl.h, saturation, baseHsl.l);
+                    setColorInput(newHex);
+                  }}
+                  style={{
+                    background: `linear-gradient(to right, hsl(${baseHsl.h}, 0%, 50%), hsl(${baseHsl.h}, 100%, 50%))`
+                  }}
+                >
+                  {/* Position indicator */}
+                  <div 
+                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    style={{ left: `${baseHsl.s}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Lightness Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
+                    Lightness
+                  </label>
+                  <span className={`text-xs font-mono ${textClass}`}>{baseHsl.l}%</span>
+                </div>
+                <div 
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const lightness = Math.round((x / rect.width) * 100);
+                    const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
+                    setBaseHsl(newHsl);
+                    const newHex = hslToHex(baseHsl.h, baseHsl.s, lightness);
+                    setColorInput(newHex);
+                  }}
+                  style={{
+                    background: `linear-gradient(to right, hsl(${baseHsl.h}, ${baseHsl.s}%, 0%), hsl(${baseHsl.h}, ${baseHsl.s}%, 100%))`
+                  }}
+                >
+                  {/* Position indicator */}
+                  <div 
+                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg"
+                    style={{ left: `${baseHsl.l}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </Reveal>
@@ -616,19 +711,6 @@ export default function PalettesPage() {
           </Reveal>
 
           <Reveal delay={360}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-yellow-500/30`}>
-              <PaletteRow 
-                title="Triadic" 
-                description="Three evenly spaced colors. Bold, vibrant, and balanced contrast."
-                colors={generateTriadic(baseHsl)} 
-                copiedIndex={copiedStates['triadic']?.index ?? null}
-                copiedFormat={copiedStates['triadic']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('triadic', color, idx, format)}
-              />
-            </div>
-          </Reveal>
-
-          <Reveal delay={400}>
             <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-red-500/30`}>
               <PaletteRow
                 title="Complementary"
@@ -641,7 +723,7 @@ export default function PalettesPage() {
             </div>
           </Reveal>
 
-          <Reveal delay={440}>
+          <Reveal delay={400}>
             <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-orange-500/30`}>
               <PaletteRow
                 title="Split Complementary"
@@ -650,6 +732,19 @@ export default function PalettesPage() {
                 copiedIndex={copiedStates['split']?.index ?? null}
                 copiedFormat={copiedStates['split']?.format ?? null}
                 onCopy={(color, idx, format) => handleCopy('split', color, idx, format)}
+              />
+            </div>
+          </Reveal>
+
+          <Reveal delay={440}>
+            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-yellow-500/30`}>
+              <PaletteRow 
+                title="Triadic" 
+                description="Three evenly spaced colors. Bold, vibrant, and balanced contrast."
+                colors={generateTriadic(baseHsl)} 
+                copiedIndex={copiedStates['triadic']?.index ?? null}
+                copiedFormat={copiedStates['triadic']?.format ?? null}
+                onCopy={(color, idx, format) => handleCopy('triadic', color, idx, format)}
               />
             </div>
           </Reveal>
