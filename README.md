@@ -50,10 +50,10 @@ Transform colors effortlessly between multiple formats with precision and ease.
 - Copy values with a single click
 
 **Light Mode:**
-![Converter Light Mode](./public/convert-light.png)
+![Converter Light Mode](./public/calculator-light.png)
 
 **Dark Mode:**
-![Converter Dark Mode](./public/convert-dark.png)
+![Converter Dark Mode](./public/calculator-dark.png)
 
 
 ### Palette Generator
