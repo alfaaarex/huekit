@@ -68,7 +68,7 @@ Create harmonious color palettes and explore color relationships.
 - Export in multiple formats
 
 **Light Mode:**
-![Palettes Light Mode](https://raw.githubusercontent.com/alfaaarex/color-tool/refs/heads/main/public/palettes-light.png)
+![Palettes Light Mode](https://raw.githubusercontent.com/alfaaarex/huekit/refs/heads/main/public/palettes-light.png)
 
 **Dark Mode:**
 ![Palettes Dark Mode](./public/palettes-dark.png)
@@ -179,8 +179,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Website**: [huekit.vercel.app](https://huekit.vercel.app/)
 - **GitHub**: [@alfaaarex](https://github.com/alfaaarex)
-- **Issues**: [Report bugs](https://github.com/alfaaarex/color-tool/issues)
-- **Discussions**: [Share ideas](https://github.com/alfaaarex/color-tool/discussions)
+- **Issues**: [Report bugs](https://github.com/alfaaarex/huekit/issues)
+- **Discussions**: [Share ideas](https://github.com/alfaaarex/huekit/discussions)
 
 ---
 
