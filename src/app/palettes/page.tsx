@@ -332,6 +332,8 @@ export default function PalettesPage() {
   useEffect(() => {
     if (isDraggingSlider) {
       const handleMouseUp = () => setIsDraggingSlider(null);
+      const handleTouchEnd = () => setIsDraggingSlider(null);
+      
       const handleMouseMove = (e: MouseEvent) => {
         if (!isDraggingSlider) return;
 
@@ -360,12 +362,45 @@ export default function PalettesPage() {
         }
       };
 
+      const handleTouchMove = (e: TouchEvent) => {
+        if (!isDraggingSlider) return;
+
+        const slider = document.getElementById(`slider-${isDraggingSlider}`);
+        if (!slider) return;
+
+        const touch = e.touches[0];
+        const rect = slider.getBoundingClientRect();
+        const x = Math.max(0, Math.min(rect.width, touch.clientX - rect.left));
+        const percentage = (x / rect.width) * 100;
+
+        if (isDraggingSlider === 'hue') {
+          const hue = Math.round((percentage / 100) * 360);
+          const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
+          setBaseHsl(newHsl);
+          setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
+        } else if (isDraggingSlider === 'saturation') {
+          const saturation = Math.round(percentage);
+          const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
+          setBaseHsl(newHsl);
+          setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
+        } else if (isDraggingSlider === 'lightness') {
+          const lightness = Math.round(percentage);
+          const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
+          setBaseHsl(newHsl);
+          setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
+        }
+      };
+
       window.addEventListener('mouseup', handleMouseUp);
       window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('touchend', handleTouchEnd);
+      window.addEventListener('touchmove', handleTouchMove);
       
       return () => {
         window.removeEventListener('mouseup', handleMouseUp);
         window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+        window.removeEventListener('touchmove', handleTouchMove);
       };
     }
   }, [isDraggingSlider, baseHsl]);
@@ -613,11 +648,22 @@ export default function PalettesPage() {
                 </div>
                 <div 
                   id="slider-hue"
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none"
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
                   onMouseDown={(e) => {
                     setIsDraggingSlider('hue');
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
+                    const hue = Math.round((x / rect.width) * 360);
+                    const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
+                    setBaseHsl(newHsl);
+                    setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setIsDraggingSlider('hue');
+                    const touch = e.touches[0];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
                     const hue = Math.round((x / rect.width) * 360);
                     const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
                     setBaseHsl(newHsl);
@@ -645,11 +691,22 @@ export default function PalettesPage() {
                 </div>
                 <div 
                   id="slider-saturation"
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none"
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
                   onMouseDown={(e) => {
                     setIsDraggingSlider('saturation');
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
+                    const saturation = Math.round((x / rect.width) * 100);
+                    const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
+                    setBaseHsl(newHsl);
+                    setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setIsDraggingSlider('saturation');
+                    const touch = e.touches[0];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
                     const saturation = Math.round((x / rect.width) * 100);
                     const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
                     setBaseHsl(newHsl);
@@ -677,11 +734,22 @@ export default function PalettesPage() {
                 </div>
                 <div 
                   id="slider-lightness"
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none"
+                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
                   onMouseDown={(e) => {
                     setIsDraggingSlider('lightness');
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
+                    const lightness = Math.round((x / rect.width) * 100);
+                    const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
+                    setBaseHsl(newHsl);
+                    setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setIsDraggingSlider('lightness');
+                    const touch = e.touches[0];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
                     const lightness = Math.round((x / rect.width) * 100);
                     const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
                     setBaseHsl(newHsl);

@@ -120,7 +120,11 @@ const ColorPickerApp = () => {
   useEffect(() => {
     const stopDrag = () => setIsDragging(false);
     window.addEventListener("mouseup", stopDrag);
-    return () => window.removeEventListener("mouseup", stopDrag);
+    window.addEventListener("touchend", stopDrag);
+    return () => {
+      window.removeEventListener("mouseup", stopDrag);
+      window.removeEventListener("touchend", stopDrag);
+    };
   }, []);
 
   const hex = rgbToHex(color.r, color.g, color.b);
@@ -163,15 +167,38 @@ const ColorPickerApp = () => {
     handlePickerClick(e);
   };
 
-  const handlePickerMouseUp = () => {
-    setIsDragging(false);
+  const handlePickerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
+    setPickerColor({ x, y });
+    setColor(hslToRgb(hsl.h, x, 100 - y));
+  };
+
+  const handlePickerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
+    setPickerColor({ x, y });
+    setColor(hslToRgb(hsl.h, x, 100 - y));
   };
 
   useEffect(() => {
     if (isDraggingSlider) {
       const handleMouseUp = () => setIsDraggingSlider(null);
+      const handleTouchEnd = () => setIsDraggingSlider(null);
       window.addEventListener('mouseup', handleMouseUp);
-      return () => window.removeEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchend', handleTouchEnd);
+      return () => {
+        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('touchend', handleTouchEnd);
+      };
     }
   }, [isDraggingSlider]);
 
@@ -323,7 +350,7 @@ const ColorPickerApp = () => {
                       <span className={`${textClass}`}>{hsl.h}°</span>
                     </div>
                     <div 
-                      className="relative w-full h-2 rounded-full cursor-pointer"
+                      className="relative w-full h-2 rounded-full cursor-pointer touch-none"
                       onMouseDown={(e) => {
                         setIsDraggingSlider('hue');
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -335,6 +362,25 @@ const ColorPickerApp = () => {
                         if (isDraggingSlider === 'hue') {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const value = Math.max(0, Math.min(359, Math.round(((e.clientX - rect.left) / rect.width) * 360)));
+                          const newRgb = hslToRgb(value, hsl.s, hsl.l);
+                          setColor(newRgb);
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('hue');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const value = Math.round(((touch.clientX - rect.left) / rect.width) * 360);
+                        const newRgb = hslToRgb(value, hsl.s, hsl.l);
+                        setColor(newRgb);
+                      }}
+                      onTouchMove={(e) => {
+                        if (isDraggingSlider === 'hue') {
+                          e.preventDefault();
+                          const touch = e.touches[0];
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const value = Math.max(0, Math.min(359, Math.round(((touch.clientX - rect.left) / rect.width) * 360)));
                           const newRgb = hslToRgb(value, hsl.s, hsl.l);
                           setColor(newRgb);
                         }
@@ -356,7 +402,7 @@ const ColorPickerApp = () => {
                       <span className={`${textClass}`}>{hsl.s}%</span>
                     </div>
                     <div 
-                      className="relative w-full h-2 rounded-full cursor-pointer"
+                      className="relative w-full h-2 rounded-full cursor-pointer touch-none"
                       onMouseDown={(e) => {
                         setIsDraggingSlider('saturation');
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -368,6 +414,25 @@ const ColorPickerApp = () => {
                         if (isDraggingSlider === 'saturation') {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const value = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                          const newRgb = hslToRgb(hsl.h, value, hsl.l);
+                          setColor(newRgb);
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('saturation');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const value = Math.round(((touch.clientX - rect.left) / rect.width) * 100);
+                        const newRgb = hslToRgb(hsl.h, value, hsl.l);
+                        setColor(newRgb);
+                      }}
+                      onTouchMove={(e) => {
+                        if (isDraggingSlider === 'saturation') {
+                          e.preventDefault();
+                          const touch = e.touches[0];
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const value = Math.max(0, Math.min(100, Math.round(((touch.clientX - rect.left) / rect.width) * 100)));
                           const newRgb = hslToRgb(hsl.h, value, hsl.l);
                           setColor(newRgb);
                         }
@@ -389,7 +454,7 @@ const ColorPickerApp = () => {
                       <span className={`${textClass}`}>{hsl.l}%</span>
                     </div>
                     <div 
-                      className="relative w-full h-2 rounded-full cursor-pointer"
+                      className="relative w-full h-2 rounded-full cursor-pointer touch-none"
                       onMouseDown={(e) => {
                         setIsDraggingSlider('lightness');
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -401,6 +466,25 @@ const ColorPickerApp = () => {
                         if (isDraggingSlider === 'lightness') {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const value = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                          const newRgb = hslToRgb(hsl.h, hsl.s, value);
+                          setColor(newRgb);
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('lightness');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const value = Math.round(((touch.clientX - rect.left) / rect.width) * 100);
+                        const newRgb = hslToRgb(hsl.h, hsl.s, value);
+                        setColor(newRgb);
+                      }}
+                      onTouchMove={(e) => {
+                        if (isDraggingSlider === 'lightness') {
+                          e.preventDefault();
+                          const touch = e.touches[0];
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const value = Math.max(0, Math.min(100, Math.round(((touch.clientX - rect.left) / rect.width) * 100)));
                           const newRgb = hslToRgb(hsl.h, hsl.s, value);
                           setColor(newRgb);
                         }
@@ -452,9 +536,11 @@ const ColorPickerApp = () => {
                 <div className="absolute inset-0 bg-linear-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <label className={`block text-sm font-medium ${secondaryText} mb-3 font-mono relative z-10`}>Picker</label>
                 <div 
-                  className="w-full h-80 rounded-xl cursor-crosshair relative shadow-outer border-0 select-none z-10"
+                  className="w-full h-80 rounded-xl cursor-crosshair relative shadow-outer border-0 select-none z-10 touch-none"
                   onMouseDown={handlePickerMouseDown}
                   onMouseMove={handlePickerMouseMove}
+                  onTouchStart={handlePickerTouchStart}
+                  onTouchMove={handlePickerTouchMove}
                   style={{
                     background: `
                       linear-gradient(to top, #000, transparent),
