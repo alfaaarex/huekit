@@ -221,7 +221,7 @@ export default function Navbar() {
                 </button>
 
                 {/* GitHub button */}
-                <Link href="https://github.com/alfaaarex/color-tool">
+                <Link href="https://github.com/alfaaarex/huekit">
                   <button
                     onMouseEnter={() => setHoveredIcon('github')}
                     onMouseLeave={() => setHoveredIcon(null)}
