@@ -1,9 +1,8 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { Copy, Check, Github, User, Sun, Moon, UserCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import { Copy, Check, Upload, X } from 'lucide-react';
 import { useTheme } from "@/components/themeprovider";
 import Reveal from '@/components/reveal';
 
@@ -13,6 +12,12 @@ type HSL = {
   h: number;
   s: number;
   l: number;
+};
+
+type RGB = {
+  r: number;
+  g: number;
+  b: number;
 };
 
 /* ---------- HELPERS ---------- */
@@ -111,39 +116,129 @@ const hexToRgb = (hex: string) => {
   };
 };
 
+const rgbToHex = (r: number, g: number, b: number) => {
+  return "#" + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, "0")).join("");
+};
+
+/* ---------- IMAGE COLOR EXTRACTION ---------- */
+const extractColorsFromImage = (imageFile: File): Promise<RGB[]> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    img.onload = () => {
+      // Resize image for faster processing
+      const maxSize = 200;
+      const scale = Math.min(maxSize / img.width, maxSize / img.height);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+
+      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+
+      if (!imageData) {
+        reject(new Error('Failed to get image data'));
+        return;
+      }
+
+      // Use k-means clustering to extract dominant colors
+      const colors: RGB[] = [];
+      const pixels: RGB[] = [];
+
+      // Sample pixels (every 4th pixel for performance)
+      for (let i = 0; i < imageData.data.length; i += 16) {
+        pixels.push({
+          r: imageData.data[i],
+          g: imageData.data[i + 1],
+          b: imageData.data[i + 2],
+        });
+      }
+
+      // Simple k-means clustering for 8 colors
+      const k = 8;
+      const maxIterations = 10;
+      let centroids: RGB[] = [];
+
+      // Initialize centroids randomly
+      for (let i = 0; i < k; i++) {
+        centroids.push(pixels[Math.floor(Math.random() * pixels.length)]);
+      }
+
+      // K-means iterations
+      for (let iter = 0; iter < maxIterations; iter++) {
+        const clusters: RGB[][] = Array(k).fill(null).map(() => []);
+
+        // Assign pixels to nearest centroid
+        pixels.forEach(pixel => {
+          let minDist = Infinity;
+          let closestCluster = 0;
+
+          centroids.forEach((centroid, idx) => {
+            const dist = Math.sqrt(
+              Math.pow(pixel.r - centroid.r, 2) +
+              Math.pow(pixel.g - centroid.g, 2) +
+              Math.pow(pixel.b - centroid.b, 2)
+            );
+            if (dist < minDist) {
+              minDist = dist;
+              closestCluster = idx;
+            }
+          });
+
+          clusters[closestCluster].push(pixel);
+        });
+
+        // Update centroids
+        centroids = clusters.map(cluster => {
+          if (cluster.length === 0) return centroids[0];
+          const sum = cluster.reduce(
+            (acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }),
+            { r: 0, g: 0, b: 0 }
+          );
+          return {
+            r: sum.r / cluster.length,
+            g: sum.g / cluster.length,
+            b: sum.b / cluster.length,
+          };
+        });
+      }
+
+      resolve(centroids);
+    };
+
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(imageFile);
+  });
+};
+
 /* ---------- IMPROVED PALETTE GENERATORS ---------- */
 
 const generateTints = ({ h, s, l }: HSL) => {
-  // Generate lighter versions by increasing lightness
-  // More subtle progression for better usability
   return [15, 30, 45, 60, 75].map(amount => ({
     h,
-    s: Math.max(5, s - amount * 0.3), // Slightly desaturate as it gets lighter
+    s: Math.max(5, s - amount * 0.3),
     l: clamp(l + amount),
   }));
 };
 
 const generateShades = ({ h, s, l }: HSL) => {
-  // Generate darker versions by decreasing lightness
-  // Desaturate as it gets darker for more natural appearance
   return [15, 30, 45, 60, 75].map(amount => ({
     h,
-    s: Math.max(0, s - amount * 0.25), // Desaturate as it gets darker
+    s: Math.max(0, s - amount * 0.25),
     l: clamp(l - amount),
   }));
 };
 
 const generateAnalogous = ({ h, s, l }: HSL) => {
-  // Colors adjacent on the color wheel
   return [-30, -15, 15, 30].map(offset => ({
     h: (h + offset + 360) % 360,
-    s: clamp(s + (Math.random() * 10 - 5)), // Add slight variation
+    s: clamp(s + (Math.random() * 10 - 5)),
     l: clamp(l + (Math.random() * 10 - 5)),
   }));
 };
 
 const generateTriadic = ({ h, s, l }: HSL) => {
-  // Three colors evenly spaced on color wheel
   return [0, 120, 240].map(offset => ({
     h: (h + offset) % 360,
     s,
@@ -157,7 +252,6 @@ const generateComplementary = ({ h, s, l }: HSL) => [
 ];
 
 const generateSplitComplementary = ({ h, s, l }: HSL) => {
-  // Base color plus two colors adjacent to its complement
   return [
     { h, s, l },
     { h: (h + 150) % 360, s, l },
@@ -166,7 +260,6 @@ const generateSplitComplementary = ({ h, s, l }: HSL) => {
 };
 
 const generateTetradic = ({ h, s, l }: HSL) => {
-  // Four colors evenly spaced (square on color wheel)
   return [0, 90, 180, 270].map(offset => ({
     h: (h + offset) % 360,
     s,
@@ -175,7 +268,6 @@ const generateTetradic = ({ h, s, l }: HSL) => {
 };
 
 const generateMonochromatic = ({ h, s, l }: HSL) => {
-  // Same hue, varying saturation and lightness
   return [
     { h, s: clamp(s - 30), l: clamp(l + 30) },
     { h, s: clamp(s - 15), l: clamp(l + 15) },
@@ -238,7 +330,6 @@ const PaletteRow = ({
               key={i}
               className="group relative"
             >
-              {/* Main color swatch */}
               <div
                 className="h-24 rounded-xl border-2 border-black/10 dark:border-white/10 cursor-pointer transition-all hover:scale-105 hover:shadow-2xl overflow-hidden relative"
                 style={{ 
@@ -246,7 +337,6 @@ const PaletteRow = ({
                   boxShadow: `0 8px 32px -8px ${hex}40`
                 }}
               >
-                {/* Hover overlay with format buttons */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end p-2 gap-1">
                   <div className="flex gap-1 w-full">
                     <button
@@ -273,7 +363,6 @@ const PaletteRow = ({
                   </div>
                 </div>
 
-                {/* Quick copy icon (center) */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   {isCopied ? (
                     <Check size={24} className="text-white drop-shadow-2xl" strokeWidth={3} />
@@ -283,7 +372,6 @@ const PaletteRow = ({
                 </div>
               </div>
 
-              {/* Color code display below */}
               <div className="mt-2 text-center">
                 <p className="text-[10px] font-mono opacity-70 truncate">{hex}</p>
               </div>
@@ -309,6 +397,7 @@ export default function PalettesPage() {
   const inputBorder = darkMode ? 'border-zinc-700' : 'border-gray-300';
   const glassCard = "backdrop-blur-xl bg-white/10 dark:bg-zinc-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] pointer-events-auto";
 
+  const [mode, setMode] = useState<'generative' | 'custom'>('generative');
   const [baseHsl, setBaseHsl] = useState({
     h: 210,
     s: 80,
@@ -317,17 +406,15 @@ export default function PalettesPage() {
   const [inputFormat, setInputFormat] = useState<"HEX" | "RGB">("HEX");
   const [colorInput, setColorInput] = useState("#3B82F6");
   const [copiedStates, setCopiedStates] = useState<Record<string, { index: number; format: string } | null>>({});
-  const [scrolled, setScrolled] = useState(false);
   const [isDraggingSlider, setIsDraggingSlider] = useState<'hue' | 'saturation' | 'lightness' | null>(null);
+  
+  // Custom mode states
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [extractedColors, setExtractedColors] = useState<RGB[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hex = hslToHex(baseHsl.h, baseHsl.s, baseHsl.l);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   useEffect(() => {
     if (isDraggingSlider) {
@@ -453,9 +540,35 @@ export default function PalettesPage() {
     }, 2000);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    const imageUrl = URL.createObjectURL(file);
+    setUploadedImage(imageUrl);
+
+    try {
+      const colors = await extractColorsFromImage(file);
+      setExtractedColors(colors);
+    } catch (error) {
+      console.error('Error extracting colors:', error);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const removeImage = () => {
+    setUploadedImage(null);
+    setExtractedColors([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className={`min-h-screen overflow-y-auto ${bgClass} ${textClass} transition-colors duration-300 relative`}>
-      {/* Animated Grid Background */}
+      {/* Background elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 opacity-30" style={{
           backgroundImage: `linear-gradient(${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px), linear-gradient(90deg, ${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px)`,
@@ -466,9 +579,8 @@ export default function PalettesPage() {
         }}></div>
       </div>
 
-      {/* Floating Orbs - Multiple animated gradients */}
+      {/* Floating Orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Primary base color orb */}
         <div 
           className="absolute w-[600px] h-[600px] rounded-full blur-[120px] opacity-30"
           style={{
@@ -479,7 +591,6 @@ export default function PalettesPage() {
           }}
         ></div>
         
-        {/* Secondary purple orb */}
         <div 
           className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-25"
           style={{
@@ -490,7 +601,6 @@ export default function PalettesPage() {
           }}
         ></div>
 
-        {/* Tertiary pink orb */}
         <div 
           className="absolute w-[450px] h-[450px] rounded-full blur-[90px] opacity-20"
           style={{
@@ -500,74 +610,9 @@ export default function PalettesPage() {
             animation: 'float 30s ease-in-out infinite'
           }}
         ></div>
-
-        {/* Blue accent orb */}
-        <div 
-          className="absolute w-[400px] h-[400px] rounded-full blur-[80px] opacity-20"
-          style={{
-            background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)',
-            bottom: '25%',
-            right: '20%',
-            animation: 'float 28s ease-in-out infinite reverse'
-          }}
-        ></div>
-
-        {/* Small accent orbs */}
-        <div 
-          className="absolute w-[300px] h-[300px] rounded-full blur-[70px] opacity-15"
-          style={{
-            background: 'radial-gradient(circle, #10b981 0%, transparent 70%)',
-            top: '50%',
-            left: '50%',
-            animation: 'pulse 15s ease-in-out infinite'
-          }}
-        ></div>
-
-        <div 
-          className="absolute w-[250px] h-[250px] rounded-full blur-[60px] opacity-15"
-          style={{
-            background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)',
-            top: '60%',
-            right: '40%',
-            animation: 'pulse 18s ease-in-out infinite reverse'
-          }}
-        ></div>
       </div>
 
-      {/* Animated mesh gradient overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-30">
-        <div 
-          className="absolute inset-0"
-          style={{
-            background: `
-              radial-gradient(at 20% 30%, ${darkMode ? 'rgba(99, 102, 241, 0.2)' : 'rgba(59, 130, 246, 0.15)'} 0px, transparent 50%),
-              radial-gradient(at 80% 20%, ${darkMode ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.15)'} 0px, transparent 50%),
-              radial-gradient(at 40% 70%, ${darkMode ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'} 0px, transparent 50%),
-              radial-gradient(at 60% 80%, ${darkMode ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.15)'} 0px, transparent 50%)
-            `,
-            animation: 'meshMove 20s ease-in-out infinite alternate'
-          }}
-        ></div>
-      </div>
-
-      {/* Animated particles */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 rounded-full opacity-20"
-            style={{
-              background: `linear-gradient(45deg, ${hex}, ${darkMode ? '#8b5cf6' : '#3b82f6'})`,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `particle ${15 + Math.random() * 10}s linear infinite`,
-              animationDelay: `${Math.random() * 5}s`
-            }}
-          ></div>
-        ))}
-      </div>
-
-      {/* Noise texture overlay */}
+      {/* Noise texture */}
       <div 
         className="fixed inset-0 pointer-events-none opacity-[0.015] mix-blend-overlay"
         style={{
@@ -599,283 +644,524 @@ export default function PalettesPage() {
           </Reveal>
         </div>
 
-        {/* Color Input */}
-        <Reveal delay={150}>
-          <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-12 max-w-4xl mx-auto shadow-2xl`}>
-            <div className="flex items-center gap-6 mb-6">
-              <div 
-                className="w-20 h-20 rounded-2xl border-4 border-white/30 shadow-2xl flex-shrink-0 transition-all hover:scale-110"
-                style={{ 
-                  backgroundColor: hex,
-                  boxShadow: `0 20px 60px -12px ${hex}80, 0 0 0 1px ${hex}40`
-                }}
-              ></div>
-              
-              <div className="flex-1 space-y-2">
-                <label className={`block text-xs font-mono ${secondaryText} uppercase tracking-wider`}>
-                  Base Color
-                </label>
-                <input
-                  value={colorInput}
-                  onChange={e => handleColorInput(e.target.value)}
-                  placeholder={inputFormat === "HEX" ? "#3B82F6" : "59, 130, 246"}
-                  className={`w-full ${inputBg} border-2 ${inputBorder} rounded-xl px-5 py-3.5 ${textClass} font-mono text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-                />
-              </div>
-
-              <select
-                value={inputFormat}
-                onChange={e => {
-                  setInputFormat(e.target.value as "HEX" | "RGB");
-                  setColorInput(e.target.value === "HEX" ? hex : "");
-                }}
-                className={`${inputBg} border-2 ${inputBorder} rounded-xl px-5 py-3.5 ${textClass} font-mono text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer transition-all hover:border-purple-400`}
-              >
-                <option>HEX</option>
-                <option>RGB</option>
-              </select>
-            </div>
-
-            {/* Color Sliders */}
-            <div className="space-y-4">
-              {/* Hue Slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
-                    Hue
-                  </label>
-                  <span className={`text-xs font-mono ${textClass}`}>{baseHsl.h}°</span>
-                </div>
-                <div 
-                  id="slider-hue"
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
-                  onMouseDown={(e) => {
-                    setIsDraggingSlider('hue');
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const hue = Math.round((x / rect.width) * 360);
-                    const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
-                    setBaseHsl(newHsl);
-                    setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    setIsDraggingSlider('hue');
-                    const touch = e.touches[0];
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = touch.clientX - rect.left;
-                    const hue = Math.round((x / rect.width) * 360);
-                    const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
-                    setBaseHsl(newHsl);
-                    setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
-                  }}
-                  style={{
-                    background: 'linear-gradient(to right, hsl(0, 80%, 50%), hsl(30, 80%, 50%), hsl(60, 80%, 50%), hsl(90, 80%, 50%), hsl(120, 80%, 50%), hsl(150, 80%, 50%), hsl(180, 80%, 50%), hsl(210, 80%, 50%), hsl(240, 80%, 50%), hsl(270, 80%, 50%), hsl(300, 80%, 50%), hsl(330, 80%, 50%), hsl(360, 80%, 50%))'
-                  }}
-                >
-                  {/* Position indicator */}
-                  <div 
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
-                    style={{ left: `${(baseHsl.h / 360) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Saturation Slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
-                    Saturation
-                  </label>
-                  <span className={`text-xs font-mono ${textClass}`}>{baseHsl.s}%</span>
-                </div>
-                <div 
-                  id="slider-saturation"
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
-                  onMouseDown={(e) => {
-                    setIsDraggingSlider('saturation');
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const saturation = Math.round((x / rect.width) * 100);
-                    const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
-                    setBaseHsl(newHsl);
-                    setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    setIsDraggingSlider('saturation');
-                    const touch = e.touches[0];
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = touch.clientX - rect.left;
-                    const saturation = Math.round((x / rect.width) * 100);
-                    const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
-                    setBaseHsl(newHsl);
-                    setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
-                  }}
-                  style={{
-                    background: `linear-gradient(to right, hsl(${baseHsl.h}, 0%, 50%), hsl(${baseHsl.h}, 100%, 50%))`
-                  }}
-                >
-                  {/* Position indicator */}
-                  <div 
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
-                    style={{ left: `${baseHsl.s}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Lightness Slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
-                    Lightness
-                  </label>
-                  <span className={`text-xs font-mono ${textClass}`}>{baseHsl.l}%</span>
-                </div>
-                <div 
-                  id="slider-lightness"
-                  className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
-                  onMouseDown={(e) => {
-                    setIsDraggingSlider('lightness');
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const lightness = Math.round((x / rect.width) * 100);
-                    const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
-                    setBaseHsl(newHsl);
-                    setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    setIsDraggingSlider('lightness');
-                    const touch = e.touches[0];
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = touch.clientX - rect.left;
-                    const lightness = Math.round((x / rect.width) * 100);
-                    const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
-                    setBaseHsl(newHsl);
-                    setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
-                  }}
-                  style={{
-                    background: `linear-gradient(to right, hsl(${baseHsl.h}, ${baseHsl.s}%, 0%), hsl(${baseHsl.h}, ${baseHsl.s}%, 100%))`
-                  }}
-                >
-                  {/* Position indicator */}
-                  <div 
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
-                    style={{ left: `${baseHsl.l}%` }}
-                  />
-                </div>
-              </div>
-            </div>
+        {/* Mode Switcher */}
+        <Reveal delay={120}>
+          <div className={`${glassCard} border ${borderColor} rounded-2xl p-2 mb-8 max-w-md mx-auto shadow-2xl flex gap-2`}>
+            <button
+              onClick={() => setMode('generative')}
+              className={`flex-1 py-3 px-6 rounded-xl font-mono font-semibold transition-all ${
+                mode === 'generative'
+                  ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
+                  : `${inputBg} ${textClass} hover:bg-opacity-80`
+              }`}
+            >
+              Generative
+            </button>
+            <button
+              onClick={() => setMode('custom')}
+              className={`flex-1 py-3 px-6 rounded-xl font-mono font-semibold transition-all ${
+                mode === 'custom'
+                  ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-lg'
+                  : `${inputBg} ${textClass} hover:bg-opacity-80`
+              }`}
+            >
+              Custom
+            </button>
           </div>
         </Reveal>
 
-        {/* Palette Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Reveal delay={200}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-purple-500/30`}>
-              <PaletteRow 
-                title="Tints" 
-                description="Lighter variations created by mixing with white. Perfect for backgrounds and subtle highlights."
-                colors={generateTints(baseHsl)} 
-                copiedIndex={copiedStates['tints']?.index ?? null}
-                copiedFormat={copiedStates['tints']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('tints', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+        {/* Generative Mode */}
+        {mode === 'generative' && (
+          <>
+            <Reveal delay={150}>
+              <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-12 max-w-4xl mx-auto shadow-2xl`}>
+                <div className="flex items-center gap-6 mb-6">
+                  <div 
+                    className="w-20 h-20 rounded-2xl border-4 border-white/30 shadow-2xl flex-shrink-0 transition-all hover:scale-110"
+                    style={{ 
+                      backgroundColor: hex,
+                      boxShadow: `0 20px 60px -12px ${hex}80, 0 0 0 1px ${hex}40`
+                    }}
+                  ></div>
+                  
+                  <div className="flex-1 space-y-2">
+                    <label className={`block text-xs font-mono ${secondaryText} uppercase tracking-wider`}>
+                      Base Color
+                    </label>
+                    <input
+                      value={colorInput}
+                      onChange={e => handleColorInput(e.target.value)}
+                      placeholder={inputFormat === "HEX" ? "#3B82F6" : "59, 130, 246"}
+                      className={`w-full ${inputBg} border-2 ${inputBorder} rounded-xl px-5 py-3.5 ${textClass} font-mono text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
+                    />
+                  </div>
 
-          <Reveal delay={240}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-blue-500/30`}>
-              <PaletteRow 
-                title="Shades" 
-                description="Darker variations created by mixing with black. Ideal for text and depth."
-                colors={generateShades(baseHsl)} 
-                copiedIndex={copiedStates['shades']?.index ?? null}
-                copiedFormat={copiedStates['shades']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('shades', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+                  <select
+                    value={inputFormat}
+                    onChange={e => {
+                      setInputFormat(e.target.value as "HEX" | "RGB");
+                      setColorInput(e.target.value === "HEX" ? hex : "");
+                    }}
+                    className={`${inputBg} border-2 ${inputBorder} rounded-xl px-5 py-3.5 ${textClass} font-mono text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer transition-all hover:border-purple-400`}
+                  >
+                    <option>HEX</option>
+                    <option>RGB</option>
+                  </select>
+                </div>
 
-          <Reveal delay={280}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-indigo-500/30`}>
-              <PaletteRow 
-                title="Monochromatic" 
-                description="Same hue with varying saturation and lightness. Creates elegant, cohesive designs."
-                colors={generateMonochromatic(baseHsl)} 
-                copiedIndex={copiedStates['mono']?.index ?? null}
-                copiedFormat={copiedStates['mono']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('mono', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+                {/* Color Sliders */}
+                <div className="space-y-4">
+                  {/* Hue Slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
+                        Hue
+                      </label>
+                      <span className={`text-xs font-mono ${textClass}`}>{baseHsl.h}°</span>
+                    </div>
+                    <div 
+                      id="slider-hue"
+                      className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
+                      onMouseDown={(e) => {
+                        setIsDraggingSlider('hue');
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const hue = Math.round((x / rect.width) * 360);
+                        const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
+                        setBaseHsl(newHsl);
+                        setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('hue');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = touch.clientX - rect.left;
+                        const hue = Math.round((x / rect.width) * 360);
+                        const newHsl = { h: hue, s: baseHsl.s, l: baseHsl.l };
+                        setBaseHsl(newHsl);
+                        setColorInput(hslToHex(hue, baseHsl.s, baseHsl.l));
+                      }}
+                      style={{
+                        background: 'linear-gradient(to right, hsl(0, 80%, 50%), hsl(30, 80%, 50%), hsl(60, 80%, 50%), hsl(90, 80%, 50%), hsl(120, 80%, 50%), hsl(150, 80%, 50%), hsl(180, 80%, 50%), hsl(210, 80%, 50%), hsl(240, 80%, 50%), hsl(270, 80%, 50%), hsl(300, 80%, 50%), hsl(330, 80%, 50%), hsl(360, 80%, 50%))'
+                      }}
+                    >
+                      <div 
+                        className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
+                        style={{ left: `${(baseHsl.h / 360) * 100}%` }}
+                      />
+                    </div>
+                  </div>
 
-          <Reveal delay={320}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-green-500/30`}>
-              <PaletteRow 
-                title="Analogous" 
-                description="Colors adjacent on the wheel. Harmonious and naturally pleasing to the eye."
-                colors={generateAnalogous(baseHsl)} 
-                copiedIndex={copiedStates['analogous']?.index ?? null}
-                copiedFormat={copiedStates['analogous']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('analogous', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+                  {/* Saturation Slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
+                        Saturation
+                      </label>
+                      <span className={`text-xs font-mono ${textClass}`}>{baseHsl.s}%</span>
+                    </div>
+                    <div 
+                      id="slider-saturation"
+                      className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
+                      onMouseDown={(e) => {
+                        setIsDraggingSlider('saturation');
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const saturation = Math.round((x / rect.width) * 100);
+                        const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
+                        setBaseHsl(newHsl);
+                        setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('saturation');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = touch.clientX - rect.left;
+                        const saturation = Math.round((x / rect.width) * 100);
+                        const newHsl = { h: baseHsl.h, s: saturation, l: baseHsl.l };
+                        setBaseHsl(newHsl);
+                        setColorInput(hslToHex(baseHsl.h, saturation, baseHsl.l));
+                      }}
+                      style={{
+                        background: `linear-gradient(to right, hsl(${baseHsl.h}, 0%, 50%), hsl(${baseHsl.h}, 100%, 50%))`
+                      }}
+                    >
+                      <div 
+                        className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
+                        style={{ left: `${baseHsl.s}%` }}
+                      />
+                    </div>
+                  </div>
 
-          <Reveal delay={360}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-red-500/30`}>
-              <PaletteRow
-                title="Complementary"
-                description="Opposite colors on the wheel. Maximum contrast and visual impact."
-                colors={generateComplementary(baseHsl)}
-                copiedIndex={copiedStates['complementary']?.index ?? null}
-                copiedFormat={copiedStates['complementary']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('complementary', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+                  {/* Lightness Slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className={`block text-[10px] font-mono ${secondaryText} uppercase tracking-wider opacity-70`}>
+                        Lightness
+                      </label>
+                      <span className={`text-xs font-mono ${textClass}`}>{baseHsl.l}%</span>
+                    </div>
+                    <div 
+                      id="slider-lightness"
+                      className="relative w-full h-10 rounded-lg cursor-pointer border-2 border-white/10 overflow-hidden select-none touch-none"
+                      onMouseDown={(e) => {
+                        setIsDraggingSlider('lightness');
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const lightness = Math.round((x / rect.width) * 100);
+                        const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
+                        setBaseHsl(newHsl);
+                        setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('lightness');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = touch.clientX - rect.left;
+                        const lightness = Math.round((x / rect.width) * 100);
+                        const newHsl = { h: baseHsl.h, s: baseHsl.s, l: lightness };
+                        setBaseHsl(newHsl);
+                        setColorInput(hslToHex(baseHsl.h, baseHsl.s, lightness));
+                      }}
+                      style={{
+                        background: `linear-gradient(to right, hsl(${baseHsl.h}, ${baseHsl.s}%, 0%), hsl(${baseHsl.h}, ${baseHsl.s}%, 100%))`
+                      }}
+                    >
+                      <div 
+                        className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none"
+                        style={{ left: `${baseHsl.l}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
 
-          <Reveal delay={400}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-orange-500/30`}>
-              <PaletteRow
-                title="Split Complementary"
-                description="Base color plus two adjacent to its complement. Contrast with more nuance."
-                colors={generateSplitComplementary(baseHsl)}
-                copiedIndex={copiedStates['split']?.index ?? null}
-                copiedFormat={copiedStates['split']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('split', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+            {/* Palette Grid - Generative */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Reveal delay={200}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-purple-500/30`}>
+                  <PaletteRow 
+                    title="Tints" 
+                    description="Lighter variations created by mixing with white. Perfect for backgrounds and subtle highlights."
+                    colors={generateTints(baseHsl)} 
+                    copiedIndex={copiedStates['tints']?.index ?? null}
+                    copiedFormat={copiedStates['tints']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('tints', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
 
-          <Reveal delay={440}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-yellow-500/30`}>
-              <PaletteRow 
-                title="Triadic" 
-                description="Three evenly spaced colors. Bold, vibrant, and balanced contrast."
-                colors={generateTriadic(baseHsl)} 
-                copiedIndex={copiedStates['triadic']?.index ?? null}
-                copiedFormat={copiedStates['triadic']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('triadic', color, idx, format)}
-              />
-            </div>
-          </Reveal>
+              <Reveal delay={240}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-blue-500/30`}>
+                  <PaletteRow 
+                    title="Shades" 
+                    description="Darker variations created by mixing with black. Ideal for text and depth."
+                    colors={generateShades(baseHsl)} 
+                    copiedIndex={copiedStates['shades']?.index ?? null}
+                    copiedFormat={copiedStates['shades']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('shades', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
 
-          <Reveal delay={480}>
-            <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-pink-500/30`}>
-              <PaletteRow
-                title="Tetradic"
-                description="Four evenly spaced colors forming a square. Rich, dynamic variety."
-                colors={generateTetradic(baseHsl)}
-                copiedIndex={copiedStates['tetradic']?.index ?? null}
-                copiedFormat={copiedStates['tetradic']?.format ?? null}
-                onCopy={(color, idx, format) => handleCopy('tetradic', color, idx, format)}
-              />
+              <Reveal delay={280}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-indigo-500/30`}>
+                  <PaletteRow 
+                    title="Monochromatic" 
+                    description="Same hue with varying saturation and lightness. Creates elegant, cohesive designs."
+                    colors={generateMonochromatic(baseHsl)} 
+                    copiedIndex={copiedStates['mono']?.index ?? null}
+                    copiedFormat={copiedStates['mono']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('mono', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
+
+              <Reveal delay={320}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-green-500/30`}>
+                  <PaletteRow 
+                    title="Analogous" 
+                    description="Colors adjacent on the wheel. Harmonious and naturally pleasing to the eye."
+                    colors={generateAnalogous(baseHsl)} 
+                    copiedIndex={copiedStates['analogous']?.index ?? null}
+                    copiedFormat={copiedStates['analogous']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('analogous', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
+
+              <Reveal delay={360}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-red-500/30`}>
+                  <PaletteRow
+                    title="Complementary"
+                    description="Opposite colors on the wheel. Maximum contrast and visual impact."
+                    colors={generateComplementary(baseHsl)}
+                    copiedIndex={copiedStates['complementary']?.index ?? null}
+                    copiedFormat={copiedStates['complementary']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('complementary', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
+
+              <Reveal delay={400}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-orange-500/30`}>
+                  <PaletteRow
+                    title="Split Complementary"
+                    description="Base color plus two adjacent to its complement. Contrast with more nuance."
+                    colors={generateSplitComplementary(baseHsl)}
+                    copiedIndex={copiedStates['split']?.index ?? null}
+                    copiedFormat={copiedStates['split']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('split', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
+
+              <Reveal delay={440}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-yellow-500/30`}>
+                  <PaletteRow 
+                    title="Triadic" 
+                    description="Three evenly spaced colors. Bold, vibrant, and balanced contrast."
+                    colors={generateTriadic(baseHsl)} 
+                    copiedIndex={copiedStates['triadic']?.index ?? null}
+                    copiedFormat={copiedStates['triadic']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('triadic', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
+
+              <Reveal delay={480}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 transition-all hover:shadow-2xl hover:border-pink-500/30`}>
+                  <PaletteRow
+                    title="Tetradic"
+                    description="Four evenly spaced colors forming a square. Rich, dynamic variety."
+                    colors={generateTetradic(baseHsl)}
+                    copiedIndex={copiedStates['tetradic']?.index ?? null}
+                    copiedFormat={copiedStates['tetradic']?.format ?? null}
+                    onCopy={(color, idx, format) => handleCopy('tetradic', color, idx, format)}
+                  />
+                </div>
+              </Reveal>
             </div>
-          </Reveal>
-        </div>
+          </>
+        )}
+
+        {/* Custom Mode - Image Upload */}
+        {mode === 'custom' && (
+          <>
+            <Reveal delay={150}>
+              <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-12 max-w-4xl mx-auto shadow-2xl`}>
+                <label className={`block text-sm font-mono ${secondaryText} uppercase tracking-wider mb-4`}>
+                  Upload Image
+                </label>
+                
+                {!uploadedImage ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed ${borderColor} rounded-2xl p-12 text-center cursor-pointer transition-all hover:border-purple-500 hover:bg-white/5`}
+                  >
+                    <Upload size={48} className="mx-auto mb-4 opacity-50" />
+                    <p className={`${secondaryText} font-mono mb-2`}>
+                      Click to upload an image
+                    </p>
+                    <p className={`text-xs ${secondaryText} font-mono opacity-60`}>
+                      PNG, JPG, or WEBP • Max 10MB
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <img
+                        src={uploadedImage}
+                        alt="Uploaded"
+                        className="w-full h-64 object-cover rounded-xl"
+                      />
+                      <button
+                        onClick={removeImage}
+                        className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-all backdrop-blur-sm"
+                      >
+                        <X size={20} className="text-white" />
+                      </button>
+                    </div>
+                    
+                    {isExtracting && (
+                      <p className={`text-center ${secondaryText} font-mono text-sm`}>
+                        Extracting colors...
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Reveal>
+
+            {extractedColors.length > 0 && (
+              <>
+                {/* Extracted Colors Palette */}
+                <Reveal delay={200}>
+                  <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-8 transition-all hover:shadow-2xl`}>
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-base font-mono font-semibold mb-1">Extracted Colors</h3>
+                        <p className="text-xs opacity-60 font-mono leading-relaxed">
+                          Dominant colors extracted from your image using k-means clustering.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+                        {extractedColors.map((rgb, i) => {
+                          const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+                          const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                          const rgbStr = `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`;
+                          const hslStr = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+                          const isCopied = copiedStates['extracted']?.index === i;
+                          const copiedFormat = copiedStates['extracted']?.format;
+
+                          return (
+                            <div key={i} className="group relative">
+                              <div
+                                className="h-24 rounded-xl border-2 border-black/10 dark:border-white/10 cursor-pointer transition-all hover:scale-105 hover:shadow-2xl overflow-hidden relative"
+                                style={{ 
+                                  backgroundColor: hex,
+                                  boxShadow: `0 8px 32px -8px ${hex}40`
+                                }}
+                              >
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end p-2 gap-1">
+                                  <div className="flex gap-1 w-full">
+                                    <button
+                                      onClick={() => handleCopy('extracted', hsl, i, 'hex')}
+                                      className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded px-1 py-1 text-[10px] font-mono text-white transition-all"
+                                      title={hex}
+                                    >
+                                      {isCopied && copiedFormat === 'hex' ? '✓' : 'HEX'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleCopy('extracted', hsl, i, 'rgb')}
+                                      className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded px-1 py-1 text-[10px] font-mono text-white transition-all"
+                                      title={rgbStr}
+                                    >
+                                      {isCopied && copiedFormat === 'rgb' ? '✓' : 'RGB'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleCopy('extracted', hsl, i, 'hsl')}
+                                      className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded px-1 py-1 text-[10px] font-mono text-white transition-all"
+                                      title={hslStr}
+                                    >
+                                      {isCopied && copiedFormat === 'hsl' ? '✓' : 'HSL'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                  {isCopied ? (
+                                    <Check size={20} className="text-white drop-shadow-2xl" strokeWidth={3} />
+                                  ) : (
+                                    <Copy size={20} className="text-white drop-shadow-2xl" strokeWidth={2} />
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mt-2 text-center">
+                                <p className="text-[10px] font-mono opacity-70 truncate">{hex}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </Reveal>
+
+                {/* Generative Palettes for Each Extracted Color */}
+                <div className="space-y-12">
+                  {extractedColors.slice(0, 4).map((rgb, colorIndex) => {
+                    const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                    const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+
+                    return (
+                      <div key={colorIndex} className="space-y-6">
+                        <Reveal delay={240 + colorIndex * 40}>
+                          <div className="flex items-center gap-4">
+                            <div
+                              className="w-12 h-12 rounded-xl border-2 border-white/30 shadow-lg flex-shrink-0"
+                              style={{ backgroundColor: hex }}
+                            ></div>
+                            <h2 className={`text-2xl font-bold font-mono ${textClass}`}>
+                              Palettes from Color #{colorIndex + 1}
+                            </h2>
+                          </div>
+                        </Reveal>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <Reveal delay={260 + colorIndex * 40}>
+                            <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl`}>
+                              <PaletteRow
+                                title="Tints"
+                                description="Lighter variations"
+                                colors={generateTints(hsl)}
+                                copiedIndex={copiedStates[`color${colorIndex}-tints`]?.index ?? null}
+                                copiedFormat={copiedStates[`color${colorIndex}-tints`]?.format ?? null}
+                                onCopy={(color, idx, format) => handleCopy(`color${colorIndex}-tints`, color, idx, format)}
+                              />
+                            </div>
+                          </Reveal>
+
+                          <Reveal delay={280 + colorIndex * 40}>
+                            <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl`}>
+                              <PaletteRow
+                                title="Shades"
+                                description="Darker variations"
+                                colors={generateShades(hsl)}
+                                copiedIndex={copiedStates[`color${colorIndex}-shades`]?.index ?? null}
+                                copiedFormat={copiedStates[`color${colorIndex}-shades`]?.format ?? null}
+                                onCopy={(color, idx, format) => handleCopy(`color${colorIndex}-shades`, color, idx, format)}
+                              />
+                            </div>
+                          </Reveal>
+
+                          <Reveal delay={300 + colorIndex * 40}>
+                            <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl`}>
+                              <PaletteRow
+                                title="Analogous"
+                                description="Adjacent colors"
+                                colors={generateAnalogous(hsl)}
+                                copiedIndex={copiedStates[`color${colorIndex}-analogous`]?.index ?? null}
+                                copiedFormat={copiedStates[`color${colorIndex}-analogous`]?.format ?? null}
+                                onCopy={(color, idx, format) => handleCopy(`color${colorIndex}-analogous`, color, idx, format)}
+                              />
+                            </div>
+                          </Reveal>
+
+                          <Reveal delay={320 + colorIndex * 40}>
+                            <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl`}>
+                              <PaletteRow
+                                title="Complementary"
+                                description="Opposite colors"
+                                colors={generateComplementary(hsl)}
+                                copiedIndex={copiedStates[`color${colorIndex}-complementary`]?.index ?? null}
+                                copiedFormat={copiedStates[`color${colorIndex}-complementary`]?.format ?? null}
+                                onCopy={(color, idx, format) => handleCopy(`color${colorIndex}-complementary`, color, idx, format)}
+                              />
+                            </div>
+                          </Reveal>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       <style jsx>{`
@@ -901,33 +1187,7 @@ export default function PalettesPage() {
             opacity: 0.25;
           }
         }
-
-        @keyframes meshMove {
-          0% {
-            transform: translate(0, 0) rotate(0deg);
-          }
-          100% {
-            transform: translate(50px, 50px) rotate(5deg);
-          }
-        }
-
-        @keyframes particle {
-          0% {
-            transform: translateY(0) translateX(0) rotate(0deg);
-            opacity: 0;
-          }
-          10% {
-            opacity: 0.2;
-          }
-          90% {
-            opacity: 0.2;
-          }
-          100% {
-            transform: translateY(-100vh) translateX(50px) rotate(360deg);
-            opacity: 0;
-          }
-        }
       `}</style>
     </div>
   );
-}
+} 
