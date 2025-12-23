@@ -1,13 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, Github, User, Sun, Moon, UserCircle } from 'lucide-react';
-import Link from 'next/link';
-
+import { Copy, Check } from 'lucide-react';
 import { useTheme } from "@/components/themeprovider";
 import Reveal from '@/components/reveal';
+import { getClosestColorName } from './colorNames';
 
 type RGB = { r: number; g: number; b: number };
 type HSL = { h: number; s: number; l: number };
+
+type ColorSpace = 'sRGB' | 'DCI-P3' | 'Adobe RGB' | 'ProPhoto RGB' | 'Rec. 2020';
 
 const ColorPickerApp = () => {
   const [color, setColor] = useState({ r: 255, g: 0, b: 0 });
@@ -16,14 +17,31 @@ const ColorPickerApp = () => {
   const [hexInput, setHexInput] = useState('#ff0000');
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingSlider, setIsDraggingSlider] = useState<null | 'hue' | 'saturation' | 'lightness'>(null);
+  const [colorSpace, setColorSpace] = useState<ColorSpace>('sRGB');
 
   const { darkMode } = useTheme();
 
-  const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v));
-  const hslToCss = (h: number, s: number, l: number) => `hsl(${h}, ${s}%, ${l}%)`;
-
   const rgbToHex = (r: number, g: number, b: number): string => {
     return "#" + [r, g, b].map(x => x.toString(16).padStart(2, "0")).join("");
+  };
+
+  // Color space conversion utilities
+  const getColorSpaceCSS = (): string => {
+    const spaceMap: Record<ColorSpace, string> = {
+      'sRGB': 'srgb',
+      'DCI-P3': 'display-p3',
+      'Adobe RGB': 'a98-rgb',
+      'ProPhoto RGB': 'prophoto-rgb',
+      'Rec. 2020': 'rec2020'
+    };
+    return spaceMap[colorSpace];
+  };
+
+  const rgbToColorSpace = (r: number, g: number, b: number): string => {
+    const normalizedR = (r / 255).toFixed(4);
+    const normalizedG = (g / 255).toFixed(4);
+    const normalizedB = (b / 255).toFixed(4);
+    return `color(${getColorSpaceCSS()} ${normalizedR} ${normalizedG} ${normalizedB})`;
   };
 
   const rgbToHsl = (r: number, g: number, b: number): HSL => {
@@ -108,15 +126,6 @@ const ColorPickerApp = () => {
     };
   };
 
-  const [scrolled, setScrolled] = useState(false);
-  
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
   useEffect(() => {
     const stopDrag = () => setIsDragging(false);
     window.addEventListener("mouseup", stopDrag);
@@ -129,6 +138,8 @@ const ColorPickerApp = () => {
 
   const hex = rgbToHex(color.r, color.g, color.b);
   const hsl = rgbToHsl(color.r, color.g, color.b);
+  const closestColor = getClosestColorName(hex);
+  const colorSpaceValue = rgbToColorSpace(color.r, color.g, color.b);
 
   useEffect(() => {
     if (isDragging) return;
@@ -139,7 +150,6 @@ const ColorPickerApp = () => {
   }, [hsl.h, hsl.s, hsl.l, isDragging]);
 
   useEffect(() => {
-    // Always sync hexInput with current color
     setHexInput(hex);
   }, [hex]);
 
@@ -225,7 +235,6 @@ const ColorPickerApp = () => {
 
   return (
     <div className={`min-h-screen ${bgClass} ${textClass} transition-colors duration-300 relative overflow-x-hidden`}>
-      {/* Animated Grid Background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 opacity-30" style={{
           backgroundImage: `linear-gradient(${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px), linear-gradient(90deg, ${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px)`,
@@ -236,9 +245,7 @@ const ColorPickerApp = () => {
         }}></div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 pt-36 pb-16 relative z-10">
-        {/* Header */}
         <div className="text-center mb-12 relative">
           <div className="absolute inset-0 -z-10 blur-3xl opacity-30" style={{
             background: darkMode 
@@ -260,11 +267,8 @@ const ColorPickerApp = () => {
           </Reveal>
         </div>
 
-        {/* Main Grid - Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Controls */}
           <div className="space-y-8">
-            {/* HEX */}
             <Reveal delay={180}>
               <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
                 <div className="absolute inset-0 bg-linear-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -287,7 +291,6 @@ const ColorPickerApp = () => {
               </div>
             </Reveal>
 
-            {/* RGB */}
             <Reveal delay={200}>
               <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
                 <div className="absolute inset-0 bg-linear-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -337,8 +340,9 @@ const ColorPickerApp = () => {
               </div>
             </Reveal>
 
-            {/* HSL */}
-            <Reveal delay={220}>
+            
+
+            <Reveal delay={240}>
               <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
                 <div className="absolute inset-0 bg-linear-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <label className={`block text-sm font-medium ${secondaryText} mb-4 font-mono relative z-10`}>HSL</label>
@@ -438,58 +442,6 @@ const ColorPickerApp = () => {
                         }
                       }}
                       style={{
-                        background: `linear-gradient(to right, hsl(${hsl.h}, 0%, ${hsl.l}%), hsl(${hsl.h}, 100%, ${hsl.l}%))`
-                      }}
-                    >
-                      <div 
-                        className="absolute w-5 h-5 bg-white border-2 border-gray-800 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 top-1/2 pointer-events-none"
-                        style={{ left: `${hsl.s}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-2 font-mono">
-                      <span className={tertiaryText}>Lightness</span>
-                      <span className={`${textClass}`}>{hsl.l}%</span>
-                    </div>
-                    <div 
-                      className="relative w-full h-2 rounded-full cursor-pointer touch-none"
-                      onMouseDown={(e) => {
-                        setIsDraggingSlider('lightness');
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const value = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-                        const newRgb = hslToRgb(hsl.h, hsl.s, value);
-                        setColor(newRgb);
-                      }}
-                      onMouseMove={(e) => {
-                        if (isDraggingSlider === 'lightness') {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const value = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-                          const newRgb = hslToRgb(hsl.h, hsl.s, value);
-                          setColor(newRgb);
-                        }
-                      }}
-                      onTouchStart={(e) => {
-                        e.preventDefault();
-                        setIsDraggingSlider('lightness');
-                        const touch = e.touches[0];
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const value = Math.round(((touch.clientX - rect.left) / rect.width) * 100);
-                        const newRgb = hslToRgb(hsl.h, hsl.s, value);
-                        setColor(newRgb);
-                      }}
-                      onTouchMove={(e) => {
-                        if (isDraggingSlider === 'lightness') {
-                          e.preventDefault();
-                          const touch = e.touches[0];
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const value = Math.max(0, Math.min(100, Math.round(((touch.clientX - rect.left) / rect.width) * 100)));
-                          const newRgb = hslToRgb(hsl.h, hsl.s, value);
-                          setColor(newRgb);
-                        }
-                      }}
-                      style={{
                         background: `linear-gradient(to right, hsl(${hsl.h}, ${hsl.s}%, 0%), hsl(${hsl.h}, ${hsl.s}%, 50%), hsl(${hsl.h}, ${hsl.s}%, 100%))`
                       }}
                     >
@@ -510,11 +462,35 @@ const ColorPickerApp = () => {
                 </button>
               </div>
             </Reveal>
+            <Reveal delay={220}>
+              <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
+                <div className="absolute inset-0 bg-linear-to-br from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <label className={`block text-sm font-medium ${secondaryText} mb-3 font-mono relative z-10`}>Color Space</label>
+                <div className="relative z-10 mb-4">
+                  <select
+                    value={colorSpace}
+                    onChange={(e) => setColorSpace(e.target.value as ColorSpace)}
+                    className={`w-full ${inputBg} border ${inputBorder} rounded-xl px-4 py-3 ${textClass} focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono cursor-pointer`}
+                  >
+                    <option value="sRGB">sRGB</option>
+                    <option value="DCI-P3">DCI-P3 (Display P3)</option>
+                    <option value="Adobe RGB">Adobe RGB</option>
+                    <option value="ProPhoto RGB">ProPhoto RGB</option>
+                    <option value="Rec. 2020">Rec. 2020</option>
+                  </select>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(colorSpaceValue, 'colorSpace')}
+                  className={`w-full flex items-center justify-center gap-2 ${btnBg} ${btnHover} rounded-xl py-2.5 transition-all border ${inputBorder} text-sm font-mono hover:border-teal-500 hover:text-teal-500 relative z-10`}
+                >
+                  {copiedField === 'colorSpace' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  <span className="truncate">{copiedField === 'colorSpace' ? 'Copied!' : colorSpaceValue}</span>
+                </button>
+              </div>
+            </Reveal>
           </div>
 
-          {/* Right Column - Preview & Picker */}
           <div className="space-y-8">
-            {/* Color Preview */}
             <Reveal delay={180}>
               <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
                 <div className="absolute inset-0 bg-linear-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -526,11 +502,35 @@ const ColorPickerApp = () => {
                     borderColor: `${hex}40`,
                     boxShadow: `0 20px 50px -12px ${hex}60, 0 0 0 1px ${hex}20`
                   }}
-                ></div>
+                >
+                  {/* Display color space indicator on preview */}
+                  <div className={`absolute top-2 right-2 px-3 py-1 rounded-lg ${inputBg} border ${inputBorder} backdrop-blur-sm`}>
+                    <span className={`text-xs font-mono ${tertiaryText}`}>{colorSpace}</span>
+                  </div>
+                </div>
+                
+                <div className="mt-4 relative z-10">
+                  <div className={`flex items-center justify-between ${inputBg} border ${inputBorder} rounded-xl px-4 py-3`}>
+                    <div>
+                      <div className={`text-xs ${tertiaryText} mb-1 font-mono`}>Color Name</div>
+                      <div className={`text-lg font-semibold ${textClass} font-mono`}>{closestColor.name}</div>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(closestColor.name, 'colorName')}
+                      className={`px-3 py-2 ${btnBg} ${btnHover} rounded-lg transition-all border ${inputBorder} hover:border-pink-500 hover:text-pink-500`}
+                    >
+                      {copiedField === 'colorName' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                  {closestColor.distance > 50 && (
+                    <div className={`text-xs ${tertiaryText} mt-2 font-mono text-center`}>
+                      Approximate match
+                    </div>
+                  )}
+                </div>
               </div>
             </Reveal>
               
-            {/* Color Picker Gradient */}
             <Reveal delay={200}>
               <div className={`${cardBg} border ${borderColor} rounded-2xl p-6 ${hoverBorder} transition-all backdrop-blur-sm shadow-sm hover:shadow-md relative overflow-hidden group`}>
                 <div className="absolute inset-0 bg-linear-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -554,7 +554,6 @@ const ColorPickerApp = () => {
                     `
                   }}
                 >
-                  {/* Picker cursor */}
                   <div 
                     className="absolute w-6 h-6 border-4 border-white rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                     style={{ 
@@ -566,6 +565,7 @@ const ColorPickerApp = () => {
                 </div>
               </div>
             </Reveal>
+            
           </div>
         </div>
       </div>
