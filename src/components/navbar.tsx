@@ -30,7 +30,7 @@ export default function Navbar() {
   return (
     <div
       className={`
-        fixed top-0 left-0 right-0 z-50 px-6
+        fixed top-0 left-0 right-0 z-50 px-3 sm:px-6
         transition-all duration-500 ease-out
         ${scrolled ? "translate-y-2" : "translate-y-4"}
       `}
@@ -73,10 +73,10 @@ export default function Navbar() {
           }}
         />
 
-        <div className="relative px-5 py-3">
-          <div className="flex items-center justify-between">
+        <div className="relative px-3 sm:px-5 py-2.5 sm:py-3">
+          <div className="flex items-center justify-between gap-2">
             {/* Logo section */}
-            <div className="flex items-center gap-2.5 group/logo cursor-pointer">
+            <div className="flex items-center gap-2 sm:gap-2.5 group/logo cursor-pointer">
               <div className="relative">
                 {/* Animated glow background */}
                 <div className="absolute inset-0 rounded-xl blur-xl opacity-0 group-hover/logo:opacity-70 transition-all duration-500"
@@ -85,9 +85,9 @@ export default function Navbar() {
                     animation: 'pulse 2s ease-in-out infinite'
                   }}
                 />
-                <div className="relative w-8 h-8 rounded-lg flex items-center justify-center transform group-hover/logo:scale-110 group-hover/logo:rotate-12 transition-all duration-500 ease-out">
-                  <svg width="28" height="25" viewBox="0 0 31 28" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    className="drop-shadow-lg transform group-hover/logo:rotate-[-12deg] transition-transform duration-500">
+                <div className="relative w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transform group-hover/logo:scale-110 group-hover/logo:rotate-12 transition-all duration-500 ease-out">
+                  <svg width="24" height="21" viewBox="0 0 31 28" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    className="sm:w-[28px] sm:h-[25px] drop-shadow-lg transform group-hover/logo:rotate-[-12deg] transition-transform duration-500">
                     <path d="M15.0459 0L30.0917 27.8313H-2.95639e-05L15.0459 0Z" fill="url(#paint0_linear_102_217)"/>
                     <defs>
                       <linearGradient id="paint0_linear_102_217" x1="32.4194" y1="4.28825" x2="-3.99473" y2="30.5046" gradientUnits="userSpaceOnUse">
@@ -99,16 +99,16 @@ export default function Navbar() {
                   </svg>
                 </div>
               </div>
-              <span className={`font-bold text-lg tracking-tight font-mono ${primaryText} transition-all duration-300 group-hover/logo:tracking-wide`}>
+              <span className={`font-bold text-base sm:text-lg tracking-tight font-mono ${primaryText} transition-all duration-300 group-hover/logo:tracking-wide`}>
                 HUEKIT
               </span>
             </div>
 
             {/* Right section */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Tab switcher */}
               <div className={`
-                relative flex items-center rounded-2xl p-1.5
+                relative flex items-center rounded-xl sm:rounded-2xl p-1 sm:p-1.5
                 ${darkMode ? 'bg-black/30' : 'bg-white/60'}
                 backdrop-blur-xl
                 border ${darkMode ? 'border-white/20' : 'border-white/40'}
@@ -123,9 +123,9 @@ export default function Navbar() {
                 {/* Active tab indicator with gradient border */}
                 <div
                   className={`
-                    absolute top-1.5 bottom-1.5 rounded-xl
+                    absolute top-1 sm:top-1.5 bottom-1 sm:bottom-1.5 rounded-lg sm:rounded-xl
                     transition-all duration-500 ease-out
-                    ${isPalettes ? "left-[calc(50%+3px)] right-1.5" : "left-1.5 right-[calc(50%+3px)]"}
+                    ${isPalettes ? "left-[calc(50%+2px)] sm:left-[calc(50%+3px)] right-1 sm:right-1.5" : "left-1 sm:left-1.5 right-[calc(50%+2px)] sm:right-[calc(50%+3px)]"}
                   `}
                   style={{
                     background: darkMode
@@ -140,9 +140,9 @@ export default function Navbar() {
                 <Link href="/" className="relative z-10 flex-1">
                   <button
                     className={`
-                      w-full px-5 py-2
-                      font-mono text-sm font-semibold
-                      rounded-xl
+                      w-full px-3 sm:px-5 py-1.5 sm:py-2
+                      font-mono text-xs sm:text-sm font-semibold
+                      rounded-lg sm:rounded-xl
                       transition-all duration-300
                       ${!isPalettes 
                         ? `${tabActiveText} scale-[1.02]`
@@ -156,9 +156,9 @@ export default function Navbar() {
                 <Link href="/palettes" className="relative z-10 flex-1">
                   <button
                     className={`
-                      w-full px-5 py-2
-                      font-mono text-sm font-semibold
-                      rounded-xl
+                      w-full px-3 sm:px-5 py-1.5 sm:py-2
+                      font-mono text-xs sm:text-sm font-semibold
+                      rounded-lg sm:rounded-xl
                       transition-all duration-300
                       ${isPalettes 
                         ? `${tabActiveText} scale-[1.02]`
@@ -171,14 +171,14 @@ export default function Navbar() {
               </div>
 
               {/* Icon buttons */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 {/* Dark mode toggle */}
                 <button
                   onClick={toggleDarkMode}
                   onMouseEnter={() => setHoveredIcon('theme')}
                   onMouseLeave={() => setHoveredIcon(null)}
                   className={`
-                    relative p-2 rounded-xl
+                    relative p-1.5 sm:p-2 rounded-lg sm:rounded-xl
                     ${darkMode ? 'bg-white/10' : 'bg-white/40'}
                     backdrop-blur-md
                     border ${darkMode ? 'border-white/20' : 'border-white/30'}
@@ -198,9 +198,9 @@ export default function Navbar() {
                     }}
                   />
                   {darkMode ? (
-                    <Sun size={18} className="relative z-10 transition-all duration-500 group-hover/icon:rotate-180 group-hover/icon:text-yellow-400" />
+                    <Sun size={16} className="sm:w-[18px] sm:h-[18px] relative z-10 transition-all duration-500 group-hover/icon:rotate-180 group-hover/icon:text-yellow-400" />
                   ) : (
-                    <Moon size={18} className="relative z-10 transition-all duration-500 group-hover/icon:rotate-[-30deg] group-hover/icon:text-indigo-500" />
+                    <Moon size={16} className="sm:w-[18px] sm:h-[18px] relative z-10 transition-all duration-500 group-hover/icon:rotate-[-30deg] group-hover/icon:text-indigo-500" />
                   )}
                 </button>
 
@@ -210,7 +210,7 @@ export default function Navbar() {
                     onMouseEnter={() => setHoveredIcon('github')}
                     onMouseLeave={() => setHoveredIcon(null)}
                     className={`
-                      relative p-2 rounded-xl
+                      relative p-1.5 sm:p-2 rounded-lg sm:rounded-xl
                       ${darkMode ? 'bg-white/10' : 'bg-white/40'}
                       backdrop-blur-md
                       border ${darkMode ? 'border-white/20' : 'border-white/30'}
@@ -226,7 +226,7 @@ export default function Navbar() {
                         background: 'radial-gradient(circle at center, rgba(139, 92, 246, 0.25), transparent 70%)',
                       }}
                     />
-                    <Github size={18} className="relative z-10 transition-all duration-500 group-hover/icon:rotate-[360deg]" />
+                    <Github size={16} className="sm:w-[18px] sm:h-[18px] relative z-10 transition-all duration-500 group-hover/icon:rotate-[360deg]" />
                   </button>
                 </Link>
 
@@ -236,7 +236,7 @@ export default function Navbar() {
                     onMouseEnter={() => setHoveredIcon('profile')}
                     onMouseLeave={() => setHoveredIcon(null)}
                     className={`
-                      relative p-2 rounded-xl
+                      relative p-1.5 sm:p-2 rounded-lg sm:rounded-xl
                       ${darkMode ? 'bg-white/10' : 'bg-white/40'}
                       backdrop-blur-md
                       border ${darkMode ? 'border-white/20' : 'border-white/30'}
@@ -252,7 +252,7 @@ export default function Navbar() {
                         background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.25), transparent 70%)',
                       }}
                     />
-                    <UserCircle size={18} className="relative z-10 transition-all duration-500 group-hover/icon:scale-110" />
+                    <UserCircle size={16} className="sm:w-[18px] sm:h-[18px] relative z-10 transition-all duration-500 group-hover/icon:scale-110" />
                   </button>
                 </Link>
               </div>
