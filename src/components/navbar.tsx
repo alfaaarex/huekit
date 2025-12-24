@@ -231,7 +231,7 @@ export default function Navbar() {
                 </Link>
 
                 {/* Profile button */}
-                <Link href="https://agni.is-a.dev/">
+                <Link href="https://github.com/alfaaarex/">
                   <button
                     onMouseEnter={() => setHoveredIcon('profile')}
                     onMouseLeave={() => setHoveredIcon(null)}
