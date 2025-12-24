@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { useTheme } from "@/components/themeprovider";
 import Reveal from '@/components/reveal';
-import { getClosestColorName } from './colorNames';
+import { getClosestColorName, ColorNameResult } from './colorNames';
 
 type RGB = { r: number; g: number; b: number };
 type HSL = { h: number; s: number; l: number };
@@ -18,6 +18,8 @@ const ColorPickerApp = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingSlider, setIsDraggingSlider] = useState<null | 'hue' | 'saturation' | 'lightness'>(null);
   const [colorSpace, setColorSpace] = useState<ColorSpace>('sRGB');
+  const [closestColor, setClosestColor] = useState<ColorNameResult>({ name: 'Red', distance: 0 });
+  const [isLoadingColorName, setIsLoadingColorName] = useState(false);
 
   const { darkMode } = useTheme();
 
@@ -138,8 +140,19 @@ const ColorPickerApp = () => {
 
   const hex = rgbToHex(color.r, color.g, color.b);
   const hsl = rgbToHsl(color.r, color.g, color.b);
-  const closestColor = getClosestColorName(hex);
   const colorSpaceValue = rgbToColorSpace(color.r, color.g, color.b);
+
+  // Fetch color name whenever hex changes
+  useEffect(() => {
+    const fetchColorName = async () => {
+      setIsLoadingColorName(true);
+      const result = await getClosestColorName(hex);
+      setClosestColor(result);
+      setIsLoadingColorName(false);
+    };
+    
+    fetchColorName();
+  }, [hex]);
 
   useEffect(() => {
     if (isDragging) return;
@@ -513,16 +526,19 @@ const ColorPickerApp = () => {
                   <div className={`flex items-center justify-between ${inputBg} border ${inputBorder} rounded-xl px-4 py-3`}>
                     <div>
                       <div className={`text-xs ${tertiaryText} mb-1 font-mono`}>Color Name</div>
-                      <div className={`text-lg font-semibold ${textClass} font-mono`}>{closestColor.name}</div>
+                      <div className={`text-lg font-semibold ${textClass} font-mono`}>
+                        {isLoadingColorName ? 'Loading...' : closestColor.name}
+                      </div>
                     </div>
                     <button
                       onClick={() => copyToClipboard(closestColor.name, 'colorName')}
-                      className={`px-3 py-2 ${btnBg} ${btnHover} rounded-lg transition-all border ${inputBorder} hover:border-pink-500 hover:text-pink-500`}
+                      disabled={isLoadingColorName}
+                      className={`px-3 py-2 ${btnBg} ${btnHover} rounded-lg transition-all border ${inputBorder} hover:border-pink-500 hover:text-pink-500 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {copiedField === 'colorName' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                     </button>
                   </div>
-                  {closestColor.distance > 50 && (
+                  {!isLoadingColorName && closestColor.distance > 50 && (
                     <div className={`text-xs ${tertiaryText} mt-2 font-mono text-center`}>
                       Approximate match
                     </div>

@@ -52,6 +52,7 @@ export default function Navbar() {
             : '0 20px 60px -15px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255,255,255,0.6) inset',
         }}
       >
+        
         {/* Subtle ambient glow */}
         <div
           className="absolute inset-0 opacity-40 pointer-events-none"

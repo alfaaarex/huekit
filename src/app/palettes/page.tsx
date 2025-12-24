@@ -129,7 +129,7 @@ const extractColorsFromImage = (imageFile: File): Promise<RGB[]> => {
 
     img.onload = () => {
       // Resize image for faster processing
-      const maxSize = 200;
+      const maxSize = 300;
       const scale = Math.min(maxSize / img.width, maxSize / img.height);
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
@@ -142,27 +142,57 @@ const extractColorsFromImage = (imageFile: File): Promise<RGB[]> => {
         return;
       }
 
-      // Use k-means clustering to extract dominant colors
-      const colors: RGB[] = [];
       const pixels: RGB[] = [];
 
-      // Sample pixels (every 4th pixel for performance)
+      // Sample pixels (skip alpha channel, filter out nearly transparent pixels)
       for (let i = 0; i < imageData.data.length; i += 16) {
-        pixels.push({
-          r: imageData.data[i],
-          g: imageData.data[i + 1],
-          b: imageData.data[i + 2],
-        });
+        const alpha = imageData.data[i + 3];
+        if (alpha > 128) { // Only include non-transparent pixels
+          pixels.push({
+            r: imageData.data[i],
+            g: imageData.data[i + 1],
+            b: imageData.data[i + 2],
+          });
+        }
       }
 
-      // Simple k-means clustering for 8 colors
+      if (pixels.length === 0) {
+        reject(new Error('No valid pixels found'));
+        return;
+      }
+
+      // K-means clustering for 8 colors
       const k = 8;
-      const maxIterations = 10;
+      const maxIterations = 20;
       let centroids: RGB[] = [];
 
-      // Initialize centroids randomly
-      for (let i = 0; i < k; i++) {
-        centroids.push(pixels[Math.floor(Math.random() * pixels.length)]);
+      // Better initialization: K-means++ algorithm
+      centroids.push(pixels[Math.floor(Math.random() * pixels.length)]);
+      
+      for (let i = 1; i < k; i++) {
+        const distances = pixels.map(pixel => {
+          let minDist = Infinity;
+          centroids.forEach(centroid => {
+            const dist = Math.sqrt(
+              Math.pow(pixel.r - centroid.r, 2) +
+              Math.pow(pixel.g - centroid.g, 2) +
+              Math.pow(pixel.b - centroid.b, 2)
+            );
+            minDist = Math.min(minDist, dist);
+          });
+          return minDist;
+        });
+
+        const totalDist = distances.reduce((sum, d) => sum + d * d, 0);
+        let random = Math.random() * totalDist;
+        
+        for (let j = 0; j < pixels.length; j++) {
+          random -= distances[j] * distances[j];
+          if (random <= 0) {
+            centroids.push(pixels[j]);
+            break;
+          }
+        }
       }
 
       // K-means iterations
@@ -190,8 +220,8 @@ const extractColorsFromImage = (imageFile: File): Promise<RGB[]> => {
         });
 
         // Update centroids
-        centroids = clusters.map(cluster => {
-          if (cluster.length === 0) return centroids[0];
+        const newCentroids = clusters.map((cluster, idx) => {
+          if (cluster.length === 0) return centroids[idx];
           const sum = cluster.reduce(
             (acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }),
             { r: 0, g: 0, b: 0 }
@@ -202,9 +232,46 @@ const extractColorsFromImage = (imageFile: File): Promise<RGB[]> => {
             b: sum.b / cluster.length,
           };
         });
+
+        // Check for convergence
+        const converged = centroids.every((c, i) => {
+          const nc = newCentroids[i];
+          return Math.abs(c.r - nc.r) < 1 && 
+                 Math.abs(c.g - nc.g) < 1 && 
+                 Math.abs(c.b - nc.b) < 1;
+        });
+
+        centroids = newCentroids;
+        
+        if (converged) break;
       }
 
-      resolve(centroids);
+      // Sort by color popularity (cluster size)
+      const clusterSizes = centroids.map((_, idx) => {
+        return pixels.filter(pixel => {
+          let minDist = Infinity;
+          let closestIdx = 0;
+          centroids.forEach((centroid, i) => {
+            const dist = Math.sqrt(
+              Math.pow(pixel.r - centroid.r, 2) +
+              Math.pow(pixel.g - centroid.g, 2) +
+              Math.pow(pixel.b - centroid.b, 2)
+            );
+            if (dist < minDist) {
+              minDist = dist;
+              closestIdx = i;
+            }
+          });
+          return closestIdx === idx;
+        }).length;
+      });
+
+      const sortedCentroids = centroids
+        .map((c, i) => ({ color: c, size: clusterSizes[i] }))
+        .sort((a, b) => b.size - a.size)
+        .map(item => item.color);
+
+      resolve(sortedCentroids);
     };
 
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -412,9 +479,18 @@ export default function PalettesPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [extractedColors, setExtractedColors] = useState<RGB[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [pickedColor, setPickedColor] = useState<RGB | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const hex = hslToHex(baseHsl.h, baseHsl.s, baseHsl.l);
+
+  useEffect(() => {
+    if (uploadedImage && showColorPicker) {
+      loadImageToCanvas();
+    }
+  }, [uploadedImage, showColorPicker]);
 
   useEffect(() => {
     if (isDraggingSlider) {
@@ -561,9 +637,54 @@ export default function PalettesPage() {
   const removeImage = () => {
     setUploadedImage(null);
     setExtractedColors([]);
+    setShowColorPicker(false);
+    setPickedColor(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleImageClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!imageCanvasRef.current || !uploadedImage) return;
+
+    const canvas = imageCanvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+    const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    const newColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
+    setPickedColor(newColor);
+
+    // Add to extracted colors if not already there
+    const colorExists = extractedColors.some(
+      c => Math.abs(c.r - newColor.r) < 5 && 
+           Math.abs(c.g - newColor.g) < 5 && 
+           Math.abs(c.b - newColor.b) < 5
+    );
+
+    if (!colorExists && extractedColors.length < 8) {
+      setExtractedColors([...extractedColors, newColor]);
+    }
+  };
+
+  const loadImageToCanvas = () => {
+    if (!uploadedImage || !imageCanvasRef.current) return;
+
+    const canvas = imageCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = uploadedImage;
   };
 
   return (
@@ -952,60 +1073,280 @@ export default function PalettesPage() {
         {/* Custom Mode - Image Upload */}
         {mode === 'custom' && (
           <>
-            <Reveal delay={150}>
-              <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-12 max-w-4xl mx-auto shadow-2xl`}>
-                <label className={`block text-sm font-mono ${secondaryText} uppercase tracking-wider mb-4`}>
-                  Upload Image
-                </label>
-                
-                {!uploadedImage ? (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`border-2 border-dashed ${borderColor} rounded-2xl p-12 text-center cursor-pointer transition-all hover:border-purple-500 hover:bg-white/5`}
-                  >
-                    <Upload size={48} className="mx-auto mb-4 opacity-50" />
-                    <p className={`${secondaryText} font-mono mb-2`}>
-                      Click to upload an image
-                    </p>
-                    <p className={`text-xs ${secondaryText} font-mono opacity-60`}>
-                      PNG, JPG, or WEBP • Max 10MB
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <img
-                        src={uploadedImage}
-                        alt="Uploaded"
-                        className="w-full h-64 object-cover rounded-xl"
-                      />
-                      <button
-                        onClick={removeImage}
-                        className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-all backdrop-blur-sm"
-                      >
-                        <X size={20} className="text-white" />
-                      </button>
-                    </div>
-                    
-                    {isExtracting && (
-                      <p className={`text-center ${secondaryText} font-mono text-sm`}>
-                        Extracting colors...
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12 max-w-7xl mx-auto">
+              {/* Image Upload Card */}
+              <Reveal delay={150}>
+                <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 shadow-2xl`}>
+                  <label className={`block text-sm font-mono ${secondaryText} uppercase tracking-wider mb-4`}>
+                    Upload Image
+                  </label>
+                  
+                  {!uploadedImage ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed ${borderColor} rounded-2xl p-12 text-center cursor-pointer transition-all hover:border-purple-500 hover:bg-white/5`}
+                    >
+                      <Upload size={48} className="mx-auto mb-4 opacity-50" />
+                      <p className={`${secondaryText} font-mono mb-2`}>
+                        Click to upload an image
                       </p>
+                      <p className={`text-xs ${secondaryText} font-mono opacity-60`}>
+                        PNG, JPG, or WEBP • Max 10MB
+                      </p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <img
+                          src={uploadedImage}
+                          alt="Uploaded"
+                          className="w-full h-64 object-cover rounded-xl"
+                        />
+                        <button
+                          onClick={removeImage}
+                          className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-all backdrop-blur-sm"
+                        >
+                          <X size={20} className="text-white" />
+                        </button>
+                      </div>
+                      
+                      {isExtracting && (
+                        <p className={`text-center ${secondaryText} font-mono text-sm`}>
+                          Extracting colors...
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Reveal>
+
+              {/* Color Picker Card */}
+              {uploadedImage && (
+                <Reveal delay={180}>
+                  <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 shadow-2xl`}>
+                    <label className={`block text-sm font-mono ${secondaryText} uppercase tracking-wider mb-4`}>
+                      Pick Color from Image
+                    </label>
+
+                    {!showColorPicker ? (
+                      <div
+                        onClick={() => setShowColorPicker(true)}
+                        className={`border-2 border-dashed ${borderColor} rounded-2xl p-12 text-center cursor-pointer transition-all hover:border-pink-500 hover:bg-white/5 h-full flex flex-col items-center justify-center`}
+                      >
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center mb-4">
+                          <Copy size={32} className="text-white" />
+                        </div>
+                        <p className={`${secondaryText} font-mono mb-2`}>
+                          Click to activate color picker
+                        </p>
+                        <p className={`text-xs ${secondaryText} font-mono opacity-60`}>
+                          Click anywhere on your image to extract colors
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="relative group">
+                          <canvas
+                            ref={imageCanvasRef}
+                            onClick={handleImageClick}
+                            className="w-full h-64 object-cover rounded-xl cursor-crosshair border-2 border-pink-500/50"
+                            style={{ imageRendering: 'auto' }}
+                          />
+                          <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2">
+                            <p className="text-white text-xs font-mono">
+                              Click to pick color
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowColorPicker(false)}
+                            className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-all backdrop-blur-sm"
+                          >
+                            <X size={20} className="text-white" />
+                          </button>
+                        </div>
+
+                        {pickedColor && (
+                          <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                            <div
+                              className="w-16 h-16 rounded-xl border-2 border-white/30 flex-shrink-0"
+                              style={{ backgroundColor: rgbToHex(pickedColor.r, pickedColor.g, pickedColor.b) }}
+                            ></div>
+                            <div className="flex-1">
+                              <p className={`text-sm font-mono ${textClass} mb-1`}>Last Picked Color</p>
+                              <p className={`text-xs font-mono ${secondaryText}`}>
+                                {rgbToHex(pickedColor.r, pickedColor.g, pickedColor.b)}
+                              </p>
+                              <p className={`text-xs font-mono ${secondaryText}`}>
+                                rgb({Math.round(pickedColor.r)}, {Math.round(pickedColor.g)}, {Math.round(pickedColor.b)})
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            </Reveal>
+                </Reveal>
+              )}
+            </div>
 
             {extractedColors.length > 0 && (
               <>
+              {/* Featured Palette from Dominant Color */}
+                {extractedColors.length > 0 && (
+                  <>
+                    <Reveal delay={220}>
+                      <div className="text-center mb-8">
+                        <h2 className={`text-3xl font-bold font-mono ${textClass} mb-2`}>
+                          Dominant Color Palettes
+                        </h2>
+                        <p className={`${secondaryText} text-sm font-mono`}>
+                          Harmonious palettes generated from your image's most prominent color
+                        </p>
+                      </div>
+                    </Reveal>
+
+                    {(() => {
+                      const rgb = extractedColors[0];
+                      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                      const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+
+                      return (
+                        <div className="space-y-6 mb-16">
+                          <Reveal delay={240}>
+                            <div className="flex items-center justify-center gap-4">
+                              <div
+                                className="w-16 h-16 rounded-2xl border-4 border-white/30 shadow-2xl flex-shrink-0"
+                                style={{ 
+                                  backgroundColor: hex,
+                                  boxShadow: `0 20px 60px -12px ${hex}80`
+                                }}
+                              ></div>
+                              <div className="text-center">
+                                <h3 className={`text-xl font-bold font-mono ${textClass}`}>
+                                  Featured Color
+                                </h3>
+                                <p className={`text-sm font-mono ${secondaryText}`}>{hex}</p>
+                              </div>
+                            </div>
+                          </Reveal>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Reveal delay={260}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-purple-500/30`}>
+                                <PaletteRow
+                                  title="Tints"
+                                  description="Lighter variations created by mixing with white"
+                                  colors={generateTints(hsl)}
+                                  copiedIndex={copiedStates['featured-tints']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-tints']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-tints', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={280}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-blue-500/30`}>
+                                <PaletteRow
+                                  title="Shades"
+                                  description="Darker variations created by mixing with black"
+                                  colors={generateShades(hsl)}
+                                  copiedIndex={copiedStates['featured-shades']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-shades']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-shades', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={300}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-indigo-500/30`}>
+                                <PaletteRow
+                                  title="Monochromatic"
+                                  description="Same hue with varying saturation and lightness"
+                                  colors={generateMonochromatic(hsl)}
+                                  copiedIndex={copiedStates['featured-mono']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-mono']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-mono', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={320}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-green-500/30`}>
+                                <PaletteRow
+                                  title="Analogous"
+                                  description="Colors adjacent on the wheel"
+                                  colors={generateAnalogous(hsl)}
+                                  copiedIndex={copiedStates['featured-analogous']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-analogous']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-analogous', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={340}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-red-500/30`}>
+                                <PaletteRow
+                                  title="Complementary"
+                                  description="Opposite colors on the wheel"
+                                  colors={generateComplementary(hsl)}
+                                  copiedIndex={copiedStates['featured-complementary']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-complementary']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-complementary', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={360}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-orange-500/30`}>
+                                <PaletteRow
+                                  title="Split Complementary"
+                                  description="Base color plus two adjacent to its complement"
+                                  colors={generateSplitComplementary(hsl)}
+                                  copiedIndex={copiedStates['featured-split']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-split']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-split', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={380}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-yellow-500/30`}>
+                                <PaletteRow
+                                  title="Triadic"
+                                  description="Three evenly spaced colors"
+                                  colors={generateTriadic(hsl)}
+                                  copiedIndex={copiedStates['featured-triadic']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-triadic']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-triadic', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+
+                            <Reveal delay={400}>
+                              <div className={`${glassCard} border ${borderColor} rounded-2xl p-6 transition-all hover:shadow-2xl hover:border-pink-500/30`}>
+                                <PaletteRow
+                                  title="Tetradic"
+                                  description="Four evenly spaced colors forming a square"
+                                  colors={generateTetradic(hsl)}
+                                  copiedIndex={copiedStates['featured-tetradic']?.index ?? null}
+                                  copiedFormat={copiedStates['featured-tetradic']?.format ?? null}
+                                  onCopy={(color, idx, format) => handleCopy('featured-tetradic', color, idx, format)}
+                                />
+                              </div>
+                            </Reveal>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
                 {/* Extracted Colors Palette */}
                 <Reveal delay={200}>
                   <div className={`${glassCard} border ${borderColor} rounded-2xl p-8 mb-8 transition-all hover:shadow-2xl`}>
@@ -1042,7 +1383,7 @@ export default function PalettesPage() {
                                       className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded px-1 py-1 text-[10px] font-mono text-white transition-all"
                                       title={hex}
                                     >
-                                      {isCopied && copiedFormat === 'hex' ? '✓' : 'HEX'}
+{isCopied && copiedFormat === 'hex' ? '✓' : 'HEX'}
                                     </button>
                                     <button
                                       onClick={() => handleCopy('extracted', hsl, i, 'rgb')}
@@ -1083,7 +1424,7 @@ export default function PalettesPage() {
 
                 {/* Generative Palettes for Each Extracted Color */}
                 <div className="space-y-12">
-                  {extractedColors.slice(0, 4).map((rgb, colorIndex) => {
+                  {extractedColors.slice(0, 9).map((rgb, colorIndex) => {
                     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
                     const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
 
