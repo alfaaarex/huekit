@@ -455,6 +455,58 @@ const ColorPickerApp = () => {
                         }
                       }}
                       style={{
+                        background: `linear-gradient(to right, hsl(${hsl.h}, 0%, ${hsl.l}%), hsl(${hsl.h}, 100%, ${hsl.l}%))`
+                      }}
+                    >
+                      <div 
+                        className="absolute w-5 h-5 bg-white border-2 border-gray-800 rounded-full shadow-lg transform -translate-x-1/2 -translate-y-1/2 top-1/2 pointer-events-none"
+                        style={{ left: `${hsl.s}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm mb-2 font-mono">
+                      <span className={tertiaryText}>Lightness</span>
+                      <span className={`${textClass}`}>{hsl.l}%</span>
+                    </div>
+                    <div 
+                      className="relative w-full h-2 rounded-full cursor-pointer touch-none"
+                      onMouseDown={(e) => {
+                        setIsDraggingSlider('lightness');
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const value = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+                        const newRgb = hslToRgb(hsl.h, hsl.s, value);
+                        setColor(newRgb);
+                      }}
+                      onMouseMove={(e) => {
+                        if (isDraggingSlider === 'lightness') {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const value = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                          const newRgb = hslToRgb(hsl.h, hsl.s, value);
+                          setColor(newRgb);
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSlider('lightness');
+                        const touch = e.touches[0];
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const value = Math.round(((touch.clientX - rect.left) / rect.width) * 100);
+                        const newRgb = hslToRgb(hsl.h, hsl.s, value);
+                        setColor(newRgb);
+                      }}
+                      onTouchMove={(e) => {
+                        if (isDraggingSlider === 'lightness') {
+                          e.preventDefault();
+                          const touch = e.touches[0];
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const value = Math.max(0, Math.min(100, Math.round(((touch.clientX - rect.left) / rect.width) * 100)));
+                          const newRgb = hslToRgb(hsl.h, hsl.s, value);
+                          setColor(newRgb);
+                        }
+                      }}
+                      style={{
                         background: `linear-gradient(to right, hsl(${hsl.h}, ${hsl.s}%, 0%), hsl(${hsl.h}, ${hsl.s}%, 50%), hsl(${hsl.h}, ${hsl.s}%, 100%))`
                       }}
                     >
