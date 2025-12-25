@@ -9,6 +9,8 @@ export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
   const pathname = usePathname();
   const isPalettes = pathname.startsWith("/palettes");
+  const isLibrary = pathname.startsWith("/library");
+  const isConvert = !isPalettes && !isLibrary;
   
   const [scrolled, setScrolled] = useState(false);
   const [hoveredIcon, setHoveredIcon] = useState<string | null>(null);
@@ -26,6 +28,14 @@ export default function Navbar() {
   const iconColor = darkMode ? "text-zinc-300" : "text-gray-600";
   const tabActiveText = darkMode ? "text-white" : "text-gray-900";
   const tabInactiveText = darkMode ? "text-zinc-400" : "text-gray-500";
+
+  // Calculate tab indicator position
+  const getTabPosition = () => {
+    if (isConvert) return "left-1 sm:left-1.5 right-[calc(66.666%+4px)] sm:right-[calc(66.666%+6px)]";
+    if (isPalettes) return "left-[calc(33.333%+2px)] sm:left-[calc(33.333%+3px)] right-[calc(33.333%+2px)] sm:right-[calc(33.333%+3px)]";
+    if (isLibrary) return "left-[calc(66.666%+4px)] sm:left-[calc(66.666%+6px)] right-1 sm:right-1.5";
+    return "left-1 sm:left-1.5 right-[calc(66.666%+4px)] sm:right-[calc(66.666%+6px)]";
+  };
 
   return (
     <div
@@ -125,7 +135,7 @@ export default function Navbar() {
                   className={`
                     absolute top-1 sm:top-1.5 bottom-1 sm:bottom-1.5 rounded-lg sm:rounded-xl
                     transition-all duration-500 ease-out
-                    ${isPalettes ? "left-[calc(50%+2px)] sm:left-[calc(50%+3px)] right-1 sm:right-1.5" : "left-1 sm:left-1.5 right-[calc(50%+2px)] sm:right-[calc(50%+3px)]"}
+                    ${getTabPosition()}
                   `}
                   style={{
                     background: darkMode
@@ -140,11 +150,11 @@ export default function Navbar() {
                 <Link href="/" className="relative z-10 flex-1">
                   <button
                     className={`
-                      w-full px-3 sm:px-5 py-1.5 sm:py-2
+                      w-full px-2 sm:px-4 py-1.5 sm:py-2
                       font-mono text-xs sm:text-sm font-semibold
                       rounded-lg sm:rounded-xl
                       transition-all duration-300
-                      ${!isPalettes 
+                      ${isConvert 
                         ? `${tabActiveText} scale-[1.02]`
                         : `${tabInactiveText} hover:text-current hover:scale-[1.01]`}
                     `}
@@ -156,7 +166,7 @@ export default function Navbar() {
                 <Link href="/palettes" className="relative z-10 flex-1">
                   <button
                     className={`
-                      w-full px-3 sm:px-5 py-1.5 sm:py-2
+                      w-full px-2 sm:px-4 py-1.5 sm:py-2
                       font-mono text-xs sm:text-sm font-semibold
                       rounded-lg sm:rounded-xl
                       transition-all duration-300
@@ -166,6 +176,22 @@ export default function Navbar() {
                     `}
                   >
                     Palettes
+                  </button>
+                </Link>
+
+                <Link href="/library" className="relative z-10 flex-1">
+                  <button
+                    className={`
+                      w-full px-2 sm:px-4 py-1.5 sm:py-2
+                      font-mono text-xs sm:text-sm font-semibold
+                      rounded-lg sm:rounded-xl
+                      transition-all duration-300
+                      ${isLibrary 
+                        ? `${tabActiveText} scale-[1.02]`
+                        : `${tabInactiveText} hover:text-current hover:scale-[1.01]`}
+                    `}
+                  >
+                    Library
                   </button>
                 </Link>
               </div>
